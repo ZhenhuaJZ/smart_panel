@@ -1,0 +1,1 @@
+python3 person_face_age_attributes_2_OO2.py -i cam -m person-detection-retail-0013.xml -m_fc face-detection-adas-0001.xml -m_ag age-gender-recognition-retail-0013.xml -m_attri person-attributes-recognition-crossroad-0031.xml -m_landmark landmarks-regression-retail-0001.xml -m_gaze itracker_iter_92000.xml -d GPU
