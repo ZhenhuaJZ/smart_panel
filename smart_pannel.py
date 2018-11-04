@@ -379,7 +379,7 @@ def main():
                         res_gaze = exec_net_gaze.infer({"image_left": in_left_eye, "image_right":in_right_eye, "image_face": in_face_gaze, "face_grid":binary_face})['fc3'][0]
                         # cv2.imshow('left', in_left_eye)
                         # cv2.imshow('right', in_right_eye)
-                        print(res_gaze)
+                        # print(res_gaze)
                         points = [width/2 + (1280/30)*res_gaze[0], height/2 - (720/15)*res_gaze[1]]
                         # print(points)
                         cv2.circle(frame, (int(points[0]), int(points[1])), 2, (125,255,0), 1)
