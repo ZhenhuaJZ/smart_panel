@@ -25,11 +25,23 @@ import logging as log
 from inference_engine import IENetwork, IEPlugin
 import numpy as np
 import math
+import _thread
 
 persons = []
 pid = 1
 entered = 0
 exited = 0
+
+frames = [];
+
+
+def capture_frame(cam):
+    while cam.video.isOpened():
+        frames.insert(0, cam.frameDetections());
+
+def frames_manage():
+    if len(frames) > 5:
+        frames.pop()
 
 class Person:
     def __init__(self, id, x, y):
@@ -238,18 +250,21 @@ def main():
     statistics_person = 0
     frame_detection_interval = 0 #ms
     detection_end_time = 0
-
     cam = Camera(input_stream)
+    _thread.start_new_thread(capture_frame,(cam,))
+    _thread.start_new_thread(frames_manage,())
 
-    while cam.video.isOpened():
-
-        ret, frame = cam.frameDetections()
+    while 1:
+        try:
+            ret, frame = frames[0];
+        except:
+            print("no frames")
+            continue
         if not ret:
             break
         cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (0,255,0), 2)
         cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (0,255,0), 2)
         cv2.line(frame, (cam.midLine, 0), (cam.midLine, cam.h), (0,255,0), 2)
-
         in_frame = frame_process(frame, n, c, h, w)
         in_face = frame_process(frame, n_fc, c_fc, h_fc, w_fc)
 
@@ -315,7 +330,7 @@ def main():
                         #person attribution
                         in_attri = frame_process(person, n_attri, c_attri, h_attri, w_attri)
                         res_attri = exec_net_attri.infer({input_blob_attri : in_attri})[out_blob_attri][0].reshape(-1)
-                        print(res_attri)
+                        # print(res_attri)
                         #crop face
                         face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                         in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
@@ -341,10 +356,10 @@ def main():
                         for _x_lm, _y_lm in zip(x_lm, y_lm):
                             # cv2.circle(frame, (int(_x_lm), int(_y_lm)), 3, (125,255,0), 2)
                             # eye_y is 1/8 of the face, eye_x is 1/4 of the face
-                            eye_ymin = int(_y_lm - 1/16 * _h_fc)
-                            eye_ymax = int(_y_lm + 1/16 * _h_fc)
-                            eye_xmin = int(_x_lm - 1/8 * _w_fc )
-                            eye_xmax = int(_x_lm + 1/8 * _w_fc)
+                            eye_ymin = int(_y_lm - 1/7 * _h_fc)
+                            eye_ymax = int(_y_lm + 1/7 * _h_fc)
+                            eye_xmin = int(_x_lm - 1/3 * _w_fc )
+                            eye_xmax = int(_x_lm + 1/3 * _w_fc)
                             cv2.rectangle(frame, (eye_xmin, eye_ymin), (eye_xmax, eye_ymax), (125,255,0), 1)
                             eyes.append(frame[eye_ymin : eye_ymax, eye_xmin : eye_xmax])
 
@@ -359,8 +374,12 @@ def main():
                         in_right_eye = frame_process(right_eye, 1, 3, 224, 224)
                         in_left_eye = frame_process(left_eye, 1, 3, 224, 224)
                         in_face_gaze = frame_process(face, 1, 3, 224, 224)
+                        # cv2.imshow('left',in_right_eye[0])
+                        # key = cv2.waitKey(0.1)
                         res_gaze = exec_net_gaze.infer({"image_left": in_left_eye, "image_right":in_right_eye, "image_face": in_face_gaze, "face_grid":binary_face})['fc3'][0]
-                        # print(res_gaze)
+                        # cv2.imshow('left', in_left_eye)
+                        # cv2.imshow('right', in_right_eye)
+                        print(res_gaze)
                         points = [width/2 + (1280/30)*res_gaze[0], height/2 - (720/15)*res_gaze[1]]
                         # print(points)
                         cv2.circle(frame, (int(points[0]), int(points[1])), 2, (125,255,0), 1)
