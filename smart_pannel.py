@@ -85,7 +85,7 @@ class Camera(object):
             inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
             for index, p in enumerate(persons):
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                if dist <= w/2 and dist <=h/2:
+                if dist <= w and dist <=h:
                     if inActiveZone:
                         new = False
                         if p.getX() < self.midLine and  xCenter >= self.midLine:
@@ -325,7 +325,7 @@ def main():
 
                     personContours.append(rect)
                     cam.counter = personContours
-                    cam.people_tracking(cam.counter) #cout the peopel
+                    # cam.people_tracking(cam.counter) #cout the peopel
 
                     try:
                         #crop the person
@@ -396,6 +396,7 @@ def main():
                     #             cv2.FONT_HERSHEY_COMPLEX, 0.6, color, 1)
                     detection_end_time = time.time()
 
+            cam.people_tracking(cam.counter)
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
             "Inference time: {:.3f} ms".format(det_time * 1000)
