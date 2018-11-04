@@ -32,7 +32,7 @@ pid = 1
 entered = 0
 exited = 0
 
-frames = [];
+frames = []
 
 
 def capture_frame(cam):
@@ -40,8 +40,9 @@ def capture_frame(cam):
         frames.insert(0, cam.frameDetections());
 
 def frames_manage():
+    print(len(frames))
     if len(frames) > 5:
-        frames.pop()
+        frames.pop(-1)
 
 class Person:
     def __init__(self, id, x, y):
@@ -251,14 +252,16 @@ def main():
     frame_detection_interval = 0 #ms
     detection_end_time = 0
     cam = Camera(input_stream)
-    _thread.start_new_thread(capture_frame,(cam,))
-    _thread.start_new_thread(frames_manage,())
+    try:
+        _thread.start_new_thread(capture_frame,(cam,))
+        _thread.start_new_thread(frames_manage,())
+    except:
+        raise
 
     while 1:
         try:
             ret, frame = frames[0];
         except:
-            print("no frames")
             continue
         if not ret:
             break
@@ -420,7 +423,9 @@ def main():
 
         if is_async_mode:
             cur_request_id, next_request_id = next_request_id, cur_request_id
-
+        if len(frames) > 5:
+            numToPop = len(frames)-5
+            for _ in range(numToPop): frames.pop();
     cv2.destroyAllWindows()
     del exec_net
     del plugin
