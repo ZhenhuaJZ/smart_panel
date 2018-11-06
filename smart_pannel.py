@@ -37,6 +37,8 @@ check_key = True
 last_checklist = {}
 start_time = time.time()
 
+
+
 def capture_frame(cam):
     while cam.video.isOpened():
         frames.insert(0, cam.frameDetections());
@@ -185,6 +187,44 @@ def build_argparser():
                         help="MKLDNN (CPU)-targeted custom layers.Absolute path to a shared library with the kernels "
                              "impl.", type=str, default=None)
     return parser
+
+
+def get_3d_landmark():
+    land_mark = np.array([
+    [-125, 170, -135], # Left eye left corner
+    [125, 170, -135], # Right eye right corner
+    [0, 0,  0], # Nose
+    [-150, -150, -125], # Left Mouth corner
+    [150, -150, -125],
+    ]
+    )
+
+    return land_mark
+
+    # modelPoints.push_back(cv::Point3d(0.0f, 0.0f, 0.0f)); //The first must be (0,0,0) while using POSIT
+    # modelPoints.push_back(cv::Point3d(0.0f, -330.0f, -65.0f));
+    # modelPoints.push_back(cv::Point3d(-225.0f, 170.0f, -135.0f));
+    # modelPoints.push_back(cv::Point3d(225.0f, 170.0f, -135.0f));
+    # modelPoints.push_back(cv::Point3d(-150.0f, -150.0f, -125.0f));
+    # modelPoints.push_back(cv::Point3d(150.0f, -150.0f, -125.0f));
+
+def landmark_3d_to_2d(img, landmark_2d):
+    cam_matrix = np.array([[img.shape[1], 0, img.shape[1]/2],
+                   [0, img.shape[1], img.shape[0]/2],
+                   [0, 0, 1]], dtype = np.float64)
+    # rot_mat = np.zeros(4,4)
+    # trans_mat = np.zeros(4,4)
+    dist_coeffs = np.zeros((4,1))
+    landmark_2d = landmark_2d.astype(np.float64)
+    print(get_3d_landmark().shape)
+    print(landmark_2d.shape)
+    retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
+
+    end_point_3d = np.array([[0,0,2000]]);
+
+    end_point_2d, _ = cv2.projectPoints(end_point_3d.astype(np.float32), rvec, tvec, cam_matrix, dist_coeffs)
+
+    return end_point_2d
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -371,6 +411,8 @@ def main():
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
                         yCenter_fc = int(ymin_fc + (height_fc)/2)
                         rect = (xCenter_fc, yCenter_fc, width_fc, height_fc)
+
+                        # Face centre point
                         cv2.circle(frame, (xCenter_fc, yCenter_fc), 5, (0,255,0), 3)
 
                         personContours.append(rect)
@@ -395,14 +437,26 @@ def main():
                             res_landmark = exec_net_landmark.infer({input_blob_landmark : face_landmark})[out_blob_landmark][0].reshape(-1)
                             _w_fc = xmax_fc - xmin_fc
                             _h_fc = ymax_fc - ymin_fc
-                            # x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
-                            # y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
-                            x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0:4:2]]
-                            y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1:5:2]]
+
+                            #landmark, left_eye, right_eye, nose, lip left, lip right
+                            x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
+                            # print('*************')
+                            y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
+                            # print(y_lm)
+                            # print('*************************')
+                            landmark_2d = np.stack((np.asarray(x_lm),np.asarray(y_lm)), axis = -1)
+                            # print("landmark2d", landmark_2d)
+
+                            end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
+                            landmark_2d = landmark_2d.astype(np.int)
+                            cv2.line(frame,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
+
+                            # x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0:4:2]]
+                            # y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1:5:2]]
 
                             eyes = []
                             for _x_lm, _y_lm in zip(x_lm, y_lm):
-                                # cv2.circle(frame, (int(_x_lm), int(_y_lm)), 3, (125,255,0), 2)
+                                cv2.circle(frame, (int(_x_lm), int(_y_lm)), 3, (125,255,0), 2)
                                 # eye_y is 1/8 of the face, eye_x is 1/4 of the face
                                 eye_ymin = int(_y_lm - 1/7 * _h_fc)
                                 eye_ymax = int(_y_lm + 1/7 * _h_fc)
