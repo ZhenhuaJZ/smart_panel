@@ -191,8 +191,8 @@ def build_argparser():
 
 def get_3d_landmark():
     land_mark = np.array([
-    [-125, 170, -135], # Left eye left corner
-    [125, 170, -135], # Right eye right corner
+    [-170, 170, -135], # Left eye left corner
+    [170, 170, -135], # Right eye right corner
     [0, 0,  0], # Nose
     [-150, -150, -125], # Left Mouth corner
     [150, -150, -125],
@@ -208,6 +208,54 @@ def get_3d_landmark():
     # modelPoints.push_back(cv::Point3d(-150.0f, -150.0f, -125.0f));
     # modelPoints.push_back(cv::Point3d(150.0f, -150.0f, -125.0f));
 
+def eular_to_image(frame,eular_angle,center,scale):
+    ##### Define camera property
+    cam_matrix = np.array([[frame.shape[1], 0, center[0]],
+                   [0, frame.shape[1], center[1]],
+                   [0, 0, 1]], dtype = np.float64)
+
+    ##### Convert from degree to radian
+    eular_angle = eular_angle * 1.57/180
+    # print(eular_angle)
+    ##### convert the eular_angle to each rotational axis matrix
+    rx = np.array([[1,0,0],
+                    [0,math.cos(eular_angle[1]),-math.sin(eular_angle[1])],
+                    [0,math.sin(eular_angle[1]),math.cos(eular_angle[1])]])
+
+    ry = np.array([[math.cos(eular_angle[0]), 0, -math.sin(eular_angle[0])],
+                    [0, 1, 0],
+                    [math.sin(eular_angle[0]), 0, math.cos(eular_angle[0])]])
+
+    rz = np.array([[math.cos(eular_angle[2]), -math.sin(eular_angle[2]), 0],
+                    [math.sin(eular_angle[2]), math.cos(eular_angle[2]), 0],
+                    [0, 0, 1]])
+    r_mat = np.matmul(np.matmul(rz,ry),rx)
+    # r_mat = rz.dot(ry).dot(rx)
+    # print(r_mat)
+    o = np.array([0,0,frame.shape[1]])
+    xAxis = r_mat.dot(np.array([scale,0,0]))+o
+    yAxis = r_mat.dot(np.array([0,-scale,0]))+o
+    zAxis = r_mat.dot(np.array([0,0,-scale]))+o
+    zAxis2 = r_mat.dot(np.array([0,0,scale]))+o
+
+    x_p = cam_matrix.dot(xAxis)/xAxis[2]
+    x_p = x_p.astype(np.int)
+    y_p = cam_matrix.dot(yAxis)/yAxis[2]
+    y_p = y_p.astype(np.int)
+    z_p = cam_matrix.dot(np.transpose(zAxis))/zAxis[2]
+    z_p = z_p.astype(np.int)
+    z_p2 = cam_matrix.dot(zAxis2)/zAxis2[2]
+    z_p2 = z_p2.astype(np.int)
+    center = center.astype(np.int)
+
+    cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
+    cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
+    cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
+    # cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,0,255],4)
+
+
+
+
 def landmark_3d_to_2d(img, landmark_2d):
     cam_matrix = np.array([[img.shape[1], 0, img.shape[1]/2],
                    [0, img.shape[1], img.shape[0]/2],
@@ -216,13 +264,17 @@ def landmark_3d_to_2d(img, landmark_2d):
     # trans_mat = np.zeros(4,4)
     dist_coeffs = np.zeros((4,1))
     landmark_2d = landmark_2d.astype(np.float64)
-    print(get_3d_landmark().shape)
-    print(landmark_2d.shape)
+    # print(landmark_2d)
+    # print(get_3d_landmark().shape)
+    # print(landmark_2d.shape)
     retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
 
     end_point_3d = np.array([[0,0,2000]]);
 
     end_point_2d, _ = cv2.projectPoints(end_point_3d.astype(np.float32), rvec, tvec, cam_matrix, dist_coeffs)
+
+    landmark_2d = landmark_2d.astype(np.int)
+    # cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
 
     return end_point_2d
 
@@ -344,7 +396,9 @@ def main():
     detection_end_time = 0
     cam = Camera(input_stream)
     camera_are = cam.w * cam.h
-
+    ####@ Define array for landmarks
+    # landmark_2d_array = np.zeros((5,2))
+    # landmark_2d_array = []
     try:
         _thread.start_new_thread(capture_frame,(cam,))
         _thread.start_new_thread(frames_manage,())
@@ -426,31 +480,38 @@ def main():
                             sex = np.argmax(res_ag['prob'])
                             age = int(res_ag['age_conv3']*100)
 
-                            #head pose
+                            ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
                             res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
-                            # for key in res_hp.keys():
-                            #     print(res_hp[key][0])
+                            head_pose = []
+                            # print(res_hp)
+                            for key in res_hp.keys():
+                                # print(key)
+                                head_pose.append(res_hp[key][0])
+                                # print(res_hp[key][0])
+                            eular_to_image(frame,np.asarray(head_pose),np.array([xCenter_fc, yCenter_fc]), 300)
 
-                            #draw landmark
+
+                            ##### draw landmark
                             face_landmark = frame_process(face, n_lm, c_lm, h_lm, w_lm)
                             res_landmark = exec_net_landmark.infer({input_blob_landmark : face_landmark})[out_blob_landmark][0].reshape(-1)
                             _w_fc = xmax_fc - xmin_fc
                             _h_fc = ymax_fc - ymin_fc
 
-                            #landmark, left_eye, right_eye, nose, lip left, lip right
+                            ##### landmark, left_eye, right_eye, nose, lip left, lip right
                             x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
                             # print('*************')
                             y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
-                            # print(y_lm)
-                            # print('*************************')
                             landmark_2d = np.stack((np.asarray(x_lm),np.asarray(y_lm)), axis = -1)
-                            # print("landmark2d", landmark_2d)
-
-                            end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
-                            landmark_2d = landmark_2d.astype(np.int)
-                            cv2.line(frame,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
-
+                            ##### Data filtering by average several landmark points
+                            # landmark_2d_array = np.concatenate((landmark_2d_array,landmark_2d), axis = 2)
+                            # landmark_2d_array.append(landmark_2d)
+                            # print(landmark_2d_array)
+                            # landmark_2d = np.mean(np.array(landmark_2d_array), axis = 0)
+                            # print(landmark_2d, landmark_2d.shape)
+                            # end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
+                            # if len(landmark_2d_array) > 3:
+                            #     landmark_2d_array.pop(0)
                             # x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0:4:2]]
                             # y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1:5:2]]
 
@@ -465,10 +526,10 @@ def main():
                                 cv2.rectangle(frame, (eye_xmin, eye_ymin), (eye_xmax, eye_ymax), (125,255,0), 1)
                                 eyes.append(frame[eye_ymin : eye_ymax, eye_xmin : eye_xmax])
 
-                            # face gaze model
+                            ##### face gaze model
                             right_eye = eyes[0]
                             left_eye = eyes[1]
-                            #binary face
+                            #### binary face
                             height, width, _ = frame.shape
                             binary_face = np.ones((height,width))
                             mask = cv2.rectangle(binary_face, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), 0, -1)
