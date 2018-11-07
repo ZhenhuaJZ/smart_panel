@@ -213,24 +213,27 @@ def eular_to_image(frame,eular_angle,center,scale):
     cam_matrix = np.array([[frame.shape[1], 0, center[0]],
                    [0, frame.shape[1], center[1]],
                    [0, 0, 1]], dtype = np.float64)
-
+    # print(eular_angle)
     ##### Convert from degree to radian
-    eular_angle = eular_angle * 1.57/180
+    eular_angle = eular_angle
+    yaw = eular_angle['angle_y_fc'][0] * 3.14/180
+    pitch = eular_angle['angle_p_fc'][0] * 3.14/180
+    roll = eular_angle['angle_r_fc'][0] * 3.14/180
     # print(eular_angle)
     ##### convert the eular_angle to each rotational axis matrix
     rx = np.array([[1,0,0],
-                    [0,math.cos(eular_angle[1]),-math.sin(eular_angle[1])],
-                    [0,math.sin(eular_angle[1]),math.cos(eular_angle[1])]])
+                    [0,math.cos(pitch),-math.sin(pitch)],
+                    [0,math.sin(pitch),math.cos(pitch)]])
 
-    ry = np.array([[math.cos(eular_angle[0]), 0, -math.sin(eular_angle[0])],
+    ry = np.array([[math.cos(yaw), 0, -math.sin(yaw)],
                     [0, 1, 0],
-                    [math.sin(eular_angle[0]), 0, math.cos(eular_angle[0])]])
+                    [math.sin(yaw), 0, math.cos(yaw)]])
 
-    rz = np.array([[math.cos(eular_angle[2]), -math.sin(eular_angle[2]), 0],
-                    [math.sin(eular_angle[2]), math.cos(eular_angle[2]), 0],
+    rz = np.array([[math.cos(roll), -math.sin(roll), 0],
+                    [math.sin(roll), math.cos(roll), 0],
                     [0, 0, 1]])
-    r_mat = np.matmul(np.matmul(rz,ry),rx)
-    # r_mat = rz.dot(ry).dot(rx)
+    # r_mat = np.matmul(np.matmul(rz,ry),rx)
+    r_mat = rz.dot(ry).dot(rx)
     # print(r_mat)
     o = np.array([0,0,frame.shape[1]])
     xAxis = r_mat.dot(np.array([scale,0,0]))+o
@@ -447,10 +450,11 @@ def main():
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
                     #if no person skip
-                    xmin_fc = int(obj_fc[3] * cam.w)
-                    ymin_fc = int(obj_fc[4] * cam.h)
-                    xmax_fc = int(obj_fc[5] * cam.w)
-                    ymax_fc = int(obj_fc[6] * cam.h)
+                    size = 5
+                    xmin_fc = int(obj_fc[3] * cam.w) - size
+                    ymin_fc = int(obj_fc[4] * cam.h) - size
+                    xmax_fc = int(obj_fc[5] * cam.w) + size
+                    ymax_fc = int(obj_fc[6] * cam.h) + size
 
                     width_fc = xmax_fc-xmin_fc
                     height_fc = ymax_fc-ymin_fc
@@ -483,13 +487,13 @@ def main():
                             ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
                             res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
-                            head_pose = []
-                            # print(res_hp)
-                            for key in res_hp.keys():
-                                # print(key)
-                                head_pose.append(res_hp[key][0])
-                                # print(res_hp[key][0])
-                            eular_to_image(frame,np.asarray(head_pose),np.array([xCenter_fc, yCenter_fc]), 300)
+                            # head_pose = []
+                            # # print(res_hp)
+                            # for key in res_hp.keys():
+                            #     # print(key)
+                            #     head_pose.append(res_hp[key][0])
+                            #     # print(res_hp[key][0])
+                            eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
 
 
                             ##### draw landmark
@@ -541,11 +545,11 @@ def main():
                             # print(res_gaze)
                             # points = [width/2 + (1280/30)*res_gaze[0], height/2 - (720/15)*res_gaze[1]]
                             # cv2.circle(frame, (int(points[0]), int(points[1])), 2, (125,255,0), 1)
-                            cv2.putText(frame, str(sex) +", "+str(age), (xmin + 100, ymin - 7),
+                            cv2.putText(frame, str(sex) +", "+str(age), (xmin_fc + 100, ymin_fc - 7),
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            pass
+                            raise
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
