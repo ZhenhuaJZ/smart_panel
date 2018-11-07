@@ -272,9 +272,9 @@ def landmark_3d_to_2d(img, landmark_2d):
     # print(landmark_2d.shape)
     retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
 
-    end_point_3d = np.array([[0,0,2000]]);
+    end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
 
-    end_point_2d, _ = cv2.projectPoints(end_point_3d.astype(np.float32), rvec, tvec, cam_matrix, dist_coeffs)
+    end_point_2d, _ = cv2.projectPoints(end_point_3d, rvec, tvec, cam_matrix, dist_coeffs)
 
     landmark_2d = landmark_2d.astype(np.int)
     # cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
