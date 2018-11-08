@@ -239,7 +239,7 @@ def eular_to_image(frame,eular_angle,center,scale):
     xAxis = r_mat.dot(np.array([scale,0,0]))+o
     yAxis = r_mat.dot(np.array([0,-scale,0]))+o
     zAxis = r_mat.dot(np.array([0,0,-scale]))+o
-    zAxis2 = r_mat.dot(np.array([0,0,-500]))+o
+    zAxis2 = r_mat.dot(np.array([0,0,-700]))+o
 
     x_p = cam_matrix.dot(xAxis)/xAxis[2]
     x_p = x_p.astype(np.int)
@@ -411,6 +411,7 @@ def main():
     while 1:
         try:
             ret, frame = frames[0];
+            frame = cv2.flip(frame,1)
         except:
             continue
         if not ret:
