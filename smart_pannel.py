@@ -210,15 +210,15 @@ def get_3d_landmark():
 
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
-    cam_matrix = np.array([[frame.shape[1], 0, center[0]],
-                   [0, frame.shape[1], center[1]],
+    cam_matrix = np.array([[950, 0, center[0]],
+                   [0, 950, center[1]],
                    [0, 0, 1]], dtype = np.float64)
     # print(eular_angle)
     ##### Convert from degree to radian
     eular_angle = eular_angle
-    yaw = eular_angle['angle_y_fc'][0] * 3.14/180
-    pitch = eular_angle['angle_p_fc'][0] * 3.14/180
-    roll = eular_angle['angle_r_fc'][0] * 3.14/180
+    yaw = eular_angle['angle_y_fc'][0] * math.pi/180
+    pitch = eular_angle['angle_p_fc'][0] * math.pi/180
+    roll = eular_angle['angle_r_fc'][0] * math.pi/180
     # print(eular_angle)
     ##### convert the eular_angle to each rotational axis matrix
     rx = np.array([[1,0,0],
@@ -239,7 +239,7 @@ def eular_to_image(frame,eular_angle,center,scale):
     xAxis = r_mat.dot(np.array([scale,0,0]))+o
     yAxis = r_mat.dot(np.array([0,-scale,0]))+o
     zAxis = r_mat.dot(np.array([0,0,-scale]))+o
-    zAxis2 = r_mat.dot(np.array([0,0,scale]))+o
+    zAxis2 = r_mat.dot(np.array([0,0,-500]))+o
 
     x_p = cam_matrix.dot(xAxis)/xAxis[2]
     x_p = x_p.astype(np.int)
@@ -254,7 +254,7 @@ def eular_to_image(frame,eular_angle,center,scale):
     cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
     cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
     cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
-    # cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,0,255],4)
+    cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
 
 
 
@@ -450,7 +450,7 @@ def main():
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
                     #if no person skip
-                    size = 5
+                    size = 0
                     xmin_fc = int(obj_fc[3] * cam.w) - size
                     ymin_fc = int(obj_fc[4] * cam.h) - size
                     xmax_fc = int(obj_fc[5] * cam.w) + size
