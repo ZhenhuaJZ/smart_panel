@@ -550,7 +550,7 @@ def main():
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            raise
+                            pass
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
