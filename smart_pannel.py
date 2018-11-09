@@ -48,6 +48,38 @@ def frames_manage():
     if len(frames) > 5:
         frames.pop(-1)
 
+class AreaOfInterest(object):
+    def __init__(self,box_points):
+        self.BoundingBoxes = box_points
+        self.timeLapsed = np.zeros((1,len(box_points)))
+        self.counter = np.zeros((1,len(box_points)))
+
+    def check_box(self, points):
+        for point in points:
+            counter = 0
+            for i in range(len(self.BoundingBoxes)):
+                if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
+                    counter = counter + 1
+                    if counter < 2:
+                        self.timeLapsed[0,i] = self.timeLapsed[0,i] + 1
+                    self.counter[0,i] = self.counter[0,i] + 1
+
+    def draw_bounding_box(self,frame):
+        for i in self.BoundingBoxes:
+            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[0]),int(i[3])), [125,125,125], 3)
+            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[2]),int(i[1])), [125,125,125], 3)
+            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[0]),int(i[3])), [125,125,125], 3)
+            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[2]),int(i[1])), [125,125,125], 3)
+
+    def update_info(self,frame):
+        for i in range(len(self.BoundingBoxes)):
+            cv2.putText(frame, 'Time stayed: '+str(self.timeLapsed[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 25),
+                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
+            cv2.putText(frame, 'people viewing: '+str(self.counter[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 50),
+                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
+        self.counter = np.zeros((1,len(self.BoundingBoxes)))
+
+
 class Person:
     def __init__(self, id, x, y):
         self.id = id
@@ -251,17 +283,15 @@ def eular_to_image(frame,eular_angle,center,scale):
     z_p2 = z_p2.astype(np.int)
     center = center.astype(np.int)
 
-    cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
-    cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
-    cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
+    # cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
+    # cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
+    # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
     cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
-
-
-
+    return z_p2
 
 def landmark_3d_to_2d(img, landmark_2d):
-    cam_matrix = np.array([[img.shape[1], 0, img.shape[1]/2],
-                   [0, img.shape[1], img.shape[0]/2],
+    cam_matrix = np.array([[950, 0, img.shape[1]/2],
+                   [0, 950, img.shape[0]/2],
                    [0, 0, 1]], dtype = np.float64)
     # rot_mat = np.zeros(4,4)
     # trans_mat = np.zeros(4,4)
@@ -275,9 +305,9 @@ def landmark_3d_to_2d(img, landmark_2d):
     end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
 
     end_point_2d, _ = cv2.projectPoints(end_point_3d, rvec, tvec, cam_matrix, dist_coeffs)
-
+    end_point_2d = end_point_2d.astype(np.int)
     landmark_2d = landmark_2d.astype(np.int)
-    # cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
+    cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
 
     return end_point_2d
 
@@ -402,6 +432,15 @@ def main():
     ####@ Define array for landmarks
     # landmark_2d_array = np.zeros((5,2))
     # landmark_2d_array = []
+
+    '''Define area of interest'''
+    boxes = np.array([
+    [0, cam.h/2, cam.w/2, 0],
+    [cam.w/2, cam.h/2, cam.w, 0]
+    ])
+    print(boxes)
+    aoi = AreaOfInterest(boxes)
+
     try:
         _thread.start_new_thread(capture_frame,(cam,))
         _thread.start_new_thread(frames_manage,())
@@ -435,7 +474,7 @@ def main():
             exec_net_face.start_async(request_id=cur_request_id, inputs={input_blob_fc: in_face})
 
         #if (inf_start-detection_end_time)*1000 >= frame_detection_interval:
-
+        aoi.draw_bounding_box(frame)
         if exec_net.requests[cur_request_id].wait(-1) == 0 and exec_net_face.requests[cur_request_id].wait(-1) == 0:
             inf_end = time.time()
             det_time = inf_end - inf_start
@@ -446,7 +485,7 @@ def main():
 
             cur_frame_p_num = 0
             personContours = []
-
+            end_points = []
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
@@ -494,8 +533,9 @@ def main():
                             #     # print(key)
                             #     head_pose.append(res_hp[key][0])
                             #     # print(res_hp[key][0])
-                            eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
-
+                            end_point = eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
+                            end_points.append(end_point)
+                            # aoi.check_box(end_point)
 
                             ##### draw landmark
                             face_landmark = frame_process(face, n_lm, c_lm, h_lm, w_lm)
@@ -511,9 +551,7 @@ def main():
                             ##### Data filtering by average several landmark points
                             # landmark_2d_array = np.concatenate((landmark_2d_array,landmark_2d), axis = 2)
                             # landmark_2d_array.append(landmark_2d)
-                            # print(landmark_2d_array)
                             # landmark_2d = np.mean(np.array(landmark_2d_array), axis = 0)
-                            # print(landmark_2d, landmark_2d.shape)
                             # end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
                             # if len(landmark_2d_array) > 3:
                             #     landmark_2d_array.pop(0)
@@ -550,7 +588,7 @@ def main():
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            pass
+                            raise
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
@@ -587,8 +625,10 @@ def main():
                     #det_label = labels_map[class_id] if labels_map else str(class_id)
                     # cv2.putText(frame, det_label + ' ' + str(round(obj[2] * 100, 1)) + ' %', (xmin, ymin - 7),
                     #             cv2.FONT_HERSHEY_COMPLEX, 0.6, color, 1)
-                    detection_end_time = time.time()
 
+                    detection_end_time = time.time()
+            aoi.check_box(end_points)
+            aoi.update_info(frame)
             cam.people_tracking(cam.counter)
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
