@@ -49,10 +49,11 @@ def frames_manage():
         frames.pop(-1)
 
 class Person:
-    def __init__(self, id, x, y):
+    def __init__(self, id, x, y, age):
         self.id = id
         self.x = x
         self.y = y
+        self.age = age
     def getId(self):
         return self.id
     def getX(self):
@@ -62,7 +63,8 @@ class Person:
     def updateCoords(self, newX, newY):
         self.x = newX
         self.y = newY
-
+    def updateAttris(self, _age):
+        self.age = _age
 
 class Camera(object):
     def __init__(self, input):
@@ -86,7 +88,10 @@ class Camera(object):
         global check_key
         global last_checklist
 
-        for xCenter, yCenter, w, h in rects:
+        for person in rects:
+
+            xCenter, yCenter, w, h = person['rect']
+            age = person['age']
             new = True
             inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
 
@@ -143,7 +148,7 @@ class Camera(object):
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(persons) + 1 <= len(rects) :
                 print("[INFO] new person " + str(pid))
-                p = Person(pid, xCenter, yCenter)
+                p = Person(pid, xCenter, yCenter, age)
                 persons.append(p)
                 pid += 1
 
@@ -446,6 +451,7 @@ def main():
 
             cur_frame_p_num = 0
             personContours = []
+            personAttributes = {}
 
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
@@ -474,8 +480,8 @@ def main():
                         # Face centre point
                         cv2.circle(frame, (xCenter_fc, yCenter_fc), 5, (0,255,0), 3)
 
-                        personContours.append(rect)
-                        cam.counter = personContours
+                        # personContours.append(rect)
+                        # cam.counter = personContours
 
                         try:
                             #crop face
@@ -484,6 +490,12 @@ def main():
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
                             age = int(res_ag['age_conv3']*100)
+
+                            personAttributes["rect"] = rect
+                            personAttributes["age"] =age
+                            personAttributes["gender"] = sex
+                            personContours.append(personAttributes)
+                            cam.counter = personContours
 
                             ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
