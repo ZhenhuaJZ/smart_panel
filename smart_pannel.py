@@ -36,6 +36,8 @@ check_key = True
 last_checklist = {}
 start_time = time.time()
 
+'''Class definition'''
+
 class AreaOfInterest(object):
     def __init__(self,box_points):
         self.BoundingBoxes = box_points
@@ -66,6 +68,8 @@ class AreaOfInterest(object):
             cv2.putText(frame, 'people viewing: '+str(self.counter[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 50),
                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
         self.counter = np.zeros((1,len(self.BoundingBoxes)))
+
+
 
 class Person:
     def __init__(self, id, x, y):
@@ -167,6 +171,8 @@ class Camera(object):
                 p = Person(pid, xCenter, yCenter)
                 persons.append(p)
                 pid += 1
+
+'''Function definition'''
 
 def build_argparser():
     parser = ArgumentParser()
@@ -306,6 +312,9 @@ def landmark_3d_to_2d(img, landmark_2d):
     cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
 
     return end_point_2d
+
+def transmit_data(data):
+    
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
