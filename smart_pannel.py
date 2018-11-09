@@ -23,8 +23,11 @@ import time
 import logging as log
 from inference_engine import IENetwork, IEPlugin
 import numpy as np
+import pandas as pd
 import math
 import _thread
+from _datetime import datetime
+import requests
 
 persons = []
 pid = 1
@@ -54,6 +57,11 @@ class AreaOfInterest(object):
                         self.timeLapsed[0,i] = self.timeLapsed[0,i] + 1
                     self.counter[0,i] = self.counter[0,i] + 1
 
+    def check_project(self,point):
+        for i in range(len(self.BoundingBoxes)):
+            if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
+                return i
+
     def draw_bounding_box(self,frame):
         for i in self.BoundingBoxes:
             cv2.line(frame,(int(i[0]),int(i[1])),(int(i[0]),int(i[3])), [125,125,125], 3)
@@ -78,6 +86,7 @@ class Person:
         self.y = y
         self.a1 = -1 #gender
         self.a2 = -1 #age
+        self.proj = -1
 
     def getId(self):
         return self.id
@@ -88,11 +97,12 @@ class Person:
     def updateCoords(self, newX, newY):
         self.x = newX
         self.y = newY
-    def updateAttris(self, age, gender):
+    def updateAttris(self, age, gender, proj):
         self.a1 = gender
         self.a2 = age
+        self.proj = proj
     def getAttris(self):
-        return [self.a1, self.a2]
+        return [self.id, self.proj, self.a1, self.a2]
 
 class Camera(object):
     def __init__(self, input):
@@ -122,6 +132,9 @@ class Camera(object):
             xCenter, yCenter, w, h = person['rect']
             gender = person['gender']
             age = person['age']
+            proj = person['project']
+
+            # print(person)
 
             new = True
             inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
@@ -153,8 +166,7 @@ class Camera(object):
             for index, p in enumerate(persons):
 
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(gender, age)
-
+                p.updateAttris(gender, age, proj)
                 if dist <= w and dist <=h:
                     if inActiveZone:
                         new = False
@@ -176,7 +188,6 @@ class Camera(object):
                         persons.pop(index)
                         for p in persons:
                             print("[INFO] left pid = ", p.getId())
-
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(persons) + 1 <= len(rects) :
                 print("[INFO] new person " + str(pid))
@@ -185,6 +196,16 @@ class Camera(object):
                 pid += 1
 
 '''Function definition'''
+
+def transmit_data(data):
+    transmit_data = {"key_order": data.columns}
+    data.fillna(-1)
+    for key in data.columns:
+        transmit_data[key] = data[key].values.tolist()
+
+    print(transmit_data)
+    r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
+    return r
 
 def build_argparser():
     parser = ArgumentParser()
@@ -325,8 +346,8 @@ def landmark_3d_to_2d(img, landmark_2d):
 
     return end_point_2d
 
-def transmit_data(data):
-    
+# def transmit_data(data):
+#     transmit
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -450,10 +471,19 @@ def main():
     # landmark_2d_array = np.zeros((5,2))
     # landmark_2d_array = []
 
+    '''Variable Definition'''
+    start_store_time = time.time()
+    start_transmit_time = time.time()
+    stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+    transmit_interval = 10
+    sample_interval = 1
+
     '''Define area of interest'''
     boxes = np.array([
     [0, cam.h/2, cam.w/2, 0],
-    [cam.w/2, cam.h/2, cam.w, 0]
+    [cam.w/2, cam.h/2, cam.w, 0],
+    [0,cam.h, cam.w/2, cam.h/2],
+    [cam.w/2, cam.h, cam.w, cam.h/2]
     ])
     print(boxes)
     aoi = AreaOfInterest(boxes)
@@ -533,9 +563,6 @@ def main():
                         # Face centre point
                         cv2.circle(frame, (xCenter_fc, yCenter_fc), 5, (0,255,0), 3)
 
-                        # personContours.append(rect)
-                        # cam.counter = personContours
-
                         try:
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
@@ -548,9 +575,6 @@ def main():
                             personAttributes["age"] =age
                             personAttributes["gender"] = sex
 
-                            personContours.append(personAttributes)
-                            cam.counter = personContours
-
                             ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
                             res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
@@ -562,6 +586,10 @@ def main():
                             #     # print(res_hp[key][0])
                             end_point = eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
+                            proj = aoi.check_project(end_point)
+                            personAttributes["project"] = proj
+
+                            personContours.append(personAttributes)
                             # aoi.check_box(end_point)
 
                             ##### draw landmark
@@ -615,7 +643,7 @@ def main():
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            pass
+                            raise
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
@@ -648,15 +676,37 @@ def main():
                                     pass
 
                                 # print(res_attri)
-
                     #det_label = labels_map[class_id] if labels_map else str(class_id)
                     # cv2.putText(frame, det_label + ' ' + str(round(obj[2] * 100, 1)) + ' %', (xmin, ymin - 7),
                     #             cv2.FONT_HERSHEY_COMPLEX, 0.6, color, 1)
 
                     detection_end_time = time.time()
+
+                # print(stored_data)
+            # if time > oneSecond:
+            #     data.append(newData)
+            #
+            # if time > transmit_interval:
+            #     transmit_data(data)
+
+            cam.counter = personContours
             aoi.check_box(end_points)
             aoi.update_info(frame)
             cam.people_tracking(cam.counter)
+
+            '''Convert attributes into dataframe for processing'''
+            if int(time.time() - start_store_time) > sample_interval:
+                for i in range(len(persons)):
+                    list = persons[i].getAttris()
+                    list.insert(0,str(datetime.now().strftime("%x-%X")))
+                    stored_data.loc[len(stored_data)] = list
+                start_store_time = time.time()
+
+            if int(time.time() - start_transmit_time) > transmit_interval:
+                transmit_data(stored_data)
+                start_transmit_time = time.time()
+
+
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
             "Inference time: {:.3f} ms".format(det_time * 1000)
