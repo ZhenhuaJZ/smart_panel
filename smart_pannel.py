@@ -76,6 +76,9 @@ class Person:
         self.id = id
         self.x = x
         self.y = y
+        self.a1 = -1 #gender
+        self.a2 = -1 #age
+
     def getId(self):
         return self.id
     def getX(self):
@@ -85,10 +88,11 @@ class Person:
     def updateCoords(self, newX, newY):
         self.x = newX
         self.y = newY
-    # def updateAttris(self, age, gender, enter_t, exit_t, a1, a2, a3, a4, a5):
-    #     self.average_age.append(age)
-    #     avg_age = reduce(lambda x, y: x + y, self.average_age) / len(self.average_age)
-    #     return int(avg_age)
+    def updateAttris(self, age, gender):
+        self.a1 = gender
+        self.a2 = age
+    def getAttris(self):
+        return [self.a1, self.a2]
 
 class Camera(object):
     def __init__(self, input):
@@ -112,7 +116,13 @@ class Camera(object):
         global check_key
         global last_checklist
 
-        for xCenter, yCenter, w, h in rects:
+        # for xCenter, yCenter, w, h in rects:
+        for person in rects:
+
+            xCenter, yCenter, w, h = person['rect']
+            gender = person['gender']
+            age = person['age']
+
             new = True
             inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
 
@@ -141,7 +151,9 @@ class Camera(object):
                 check_key = True
 
             for index, p in enumerate(persons):
+
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
+                p.updateAttris(gender, age)
 
                 if dist <= w and dist <=h:
                     if inActiveZone:
@@ -488,12 +500,15 @@ def main():
             res = exec_net.requests[cur_request_id].outputs[out_blob]
             res_fc = exec_net_face.requests[cur_request_id].outputs[out_blob_fc]
 
-            cur_frame_p_num = 0
             personContours = []
             end_points = []
+
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
+
+                    personAttributes = {} #muset inside of the face loop otherwise it wont update
+
                     #if no person skip
                     size = 0
                     xmin_fc = int(obj_fc[3] * cam.w) - size
@@ -518,8 +533,8 @@ def main():
                         # Face centre point
                         cv2.circle(frame, (xCenter_fc, yCenter_fc), 5, (0,255,0), 3)
 
-                        personContours.append(rect)
-                        cam.counter = personContours
+                        # personContours.append(rect)
+                        # cam.counter = personContours
 
                         try:
                             #crop face
@@ -528,6 +543,13 @@ def main():
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
                             age = int(res_ag['age_conv3']*100)
+
+                            personAttributes["rect"] = rect
+                            personAttributes["age"] =age
+                            personAttributes["gender"] = sex
+
+                            personContours.append(personAttributes)
+                            cam.counter = personContours
 
                             ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
@@ -593,7 +615,7 @@ def main():
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            raise
+                            pass
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
