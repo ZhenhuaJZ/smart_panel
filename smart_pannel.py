@@ -485,7 +485,6 @@ def main():
     [0,cam.h, cam.w/2, cam.h/2],
     [cam.w/2, cam.h, cam.w, cam.h/2]
     ])
-    print(boxes)
     aoi = AreaOfInterest(boxes)
 
     try:
@@ -643,7 +642,7 @@ def main():
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
                         except Exception as e:
-                            raise
+                            pass
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
@@ -704,6 +703,8 @@ def main():
 
             if int(time.time() - start_transmit_time) > transmit_interval:
                 transmit_data(stored_data)
+                stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+
                 start_transmit_time = time.time()
 
 
