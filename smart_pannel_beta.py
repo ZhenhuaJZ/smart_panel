@@ -508,7 +508,6 @@ def main():
                             #     # print(res_hp[key][0])
                             eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
 
-
                             ##### draw landmark
                             face_landmark = frame_process(face, n_lm, c_lm, h_lm, w_lm)
                             res_landmark = exec_net_landmark.infer({input_blob_landmark : face_landmark})[out_blob_landmark][0].reshape(-1)
@@ -516,17 +515,17 @@ def main():
                             _h_fc = ymax_fc - ymin_fc
 
                             ##### landmark, left_eye, right_eye, nose, lip left, lip right
-                            x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
-                            # print('*************')
-                            y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
-                            landmark_2d = np.stack((np.asarray(x_lm),np.asarray(y_lm)), axis = -1)
-                            ##### Data filtering by average several landmark points
-                            landmark_2d_array = np.concatenate((landmark_2d_array,landmark_2d), axis = 2)
-                            landmark_2d_array.append(landmark_2d)
-                            landmark_2d = np.mean(np.array(landmark_2d_array), axis = 0)
-                            end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
-                            if len(landmark_2d_array) > 3:
-                                landmark_2d_array.pop(0)
+                            # x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
+                            # # print('*************')
+                            # y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
+                            # landmark_2d = np.stack((np.asarray(x_lm),np.asarray(y_lm)), axis = -1)
+                            # ##### Data filtering by average several landmark points
+                            # landmark_2d_array = np.concatenate((landmark_2d_array,landmark_2d), axis = 2)
+                            # landmark_2d_array.append(landmark_2d)
+                            # landmark_2d = np.mean(np.array(landmark_2d_array), axis = 0)
+                            # end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
+                            # if len(landmark_2d_array) > 3:
+                            #     landmark_2d_array.pop(0)
                             x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0:4:2]]
                             y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1:5:2]]
 
@@ -598,7 +597,6 @@ def main():
                     # cv2.putText(frame, det_label + ' ' + str(round(obj[2] * 100, 1)) + ' %', (xmin, ymin - 7),
                     #             cv2.FONT_HERSHEY_COMPLEX, 0.6, color, 1)
                     detection_end_time = time.time()
-
             cam.people_tracking(cam.counter)
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \

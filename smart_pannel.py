@@ -28,184 +28,30 @@ import math
 import _thread
 from _datetime import datetime
 import requests
+'''Import custom class'''
+from AreaOfInterest import *
+from Person import *
+from Camera import *
 
+'''Global definition'''
 persons = []
-pid = 1
-entered = 0
-exited = 0
 frames = []
 
-check_key = True
-last_checklist = {}
-start_time = time.time()
-
-'''Class definition'''
-
-class AreaOfInterest(object):
-    def __init__(self,box_points):
-        self.BoundingBoxes = box_points
-        self.timeLapsed = np.zeros((1,len(box_points)))
-        self.counter = np.zeros((1,len(box_points)))
-
-    def check_box(self, points):
-        for point in points:
-            counter = 0
-            for i in range(len(self.BoundingBoxes)):
-                if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
-                    counter = counter + 1
-                    if counter < 2:
-                        self.timeLapsed[0,i] = self.timeLapsed[0,i] + 1
-                    self.counter[0,i] = self.counter[0,i] + 1
-
-    def check_project(self,point):
-        for i in range(len(self.BoundingBoxes)):
-            if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
-                return i
-
-    def draw_bounding_box(self,frame):
-        for i in self.BoundingBoxes:
-            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[0]),int(i[3])), [125,125,125], 3)
-            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[2]),int(i[1])), [125,125,125], 3)
-            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[0]),int(i[3])), [125,125,125], 3)
-            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[2]),int(i[1])), [125,125,125], 3)
-
-    def update_info(self,frame):
-        for i in range(len(self.BoundingBoxes)):
-            cv2.putText(frame, 'Time stayed: '+str(self.timeLapsed[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 25),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
-            cv2.putText(frame, 'people viewing: '+str(self.counter[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 50),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
-        self.counter = np.zeros((1,len(self.BoundingBoxes)))
 
 
-
-class Person:
-    def __init__(self, id, x, y):
-        self.id = id
-        self.x = x
-        self.y = y
-        self.a1 = -1 #gender
-        self.a2 = -1 #age
-        self.proj = -1
-
-    def getId(self):
-        return self.id
-    def getX(self):
-        return self.x
-    def getY(self):
-        return self.y
-    def updateCoords(self, newX, newY):
-        self.x = newX
-        self.y = newY
-    def updateAttris(self, age, gender, proj):
-        self.a1 = gender
-        self.a2 = age
-        self.proj = proj
-    def getAttris(self):
-        return [self.id, self.proj, self.a1, self.a2]
-
-class Camera(object):
-    def __init__(self, input):
-        self.input = input
-        self.video = cv2.VideoCapture(self.input)
-        self.w = int(self.video.get(3))
-        self.h = int(self.video.get(4))
-        self.rangeLeft = int(1*self.w/8)
-        self.rangeRight = int(7*self.w/8)
-        self.midLine = int(4*self.w/8)
-        self.counter= []
-    def __del__(self):
-        self.video.release()
-
-    def frameDetections(self):
-        return self.video.read()
-
-    def people_tracking(self, rects):
-        global pid
-        global entered
-        global check_key
-        global last_checklist
-
-        # for xCenter, yCenter, w, h in rects:
-        for person in rects:
-
-            xCenter, yCenter, w, h = person['rect']
-            gender = person['gender']
-            age = person['age']
-            proj = person['project']
-
-            # print(person)
-
-            new = True
-            inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
-
-            #check every ppl location in every 5s
-            if int(time.time() - start_time) % 10 == 0 and check_key == True:
-                cur_checklist = {}
-                cur_indexlist = {}
-                for index, p in enumerate(persons):
-                    fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                    cur_checklist["pid" + str(p.getId())] = fix_dist
-                    cur_indexlist["pid" + str(p.getId())] = index
-                # print(last_checklist)
-
-                check_key = False
-
-                for key in last_checklist.keys():
-                    if cur_checklist[key] == last_checklist[key]:
-                        print("[INFO] pop : ", key)
-                        persons.pop(cur_indexlist[key])
-                        cur_checklist.pop(key)
-                        print("[INFO] left pid = " , cur_checklist.keys())
-
-                last_checklist = cur_checklist
-
-            elif int(time.time() - start_time) % 5 != 0:
-                check_key = True
-
-            for index, p in enumerate(persons):
-
-                dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(gender, age, proj)
-                if dist <= w and dist <=h:
-                    if inActiveZone:
-                        new = False
-                        if p.getX() < self.midLine and  xCenter >= self.midLine:
-                            print("[INFO] person {} going left ".format(str(p.getId())))
-                            # entered += 1 #count ppl in and out
-                        if p.getX() > self.midLine and  xCenter <= self.midLine:
-                            print("[INFO] person {} going right ".format(str(p.getId())))
-                            # exited += 1
-                        p.updateCoords(xCenter,yCenter)
-                        break
-                    else:
-                        print("[INFO] person {} removed ".format(str(p.getId())))
-                        entered += 1 #count ppl in the area
-                        try:
-                            last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
-                        except Exception as e:
-                            pass
-                        persons.pop(index)
-                        for p in persons:
-                            print("[INFO] left pid = ", p.getId())
-            #make sure the total persons number wont excess the bounding box
-            if new == True and inActiveZone and len(persons) + 1 <= len(rects) :
-                print("[INFO] new person " + str(pid))
-                p = Person(pid, xCenter, yCenter)
-                persons.append(p)
-                pid += 1
 
 '''Function definition'''
-
 def transmit_data(data):
-    transmit_data = {"key_order": data.columns}
-    data.fillna(-1)
+    transmit_data = {"key_order": data.columns} # Save dataframe order first
+    data.fillna(-1,inplace = True) # Process None data
+    print(data)
     for key in data.columns:
         transmit_data[key] = data[key].values.tolist()
-
-    print(transmit_data)
-    r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
-    return r
+    try:
+        r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
+    except Exception as e:
+        return
+    return
 
 def build_argparser():
     parser = ArgumentParser()
@@ -268,25 +114,16 @@ def get_3d_landmark():
 
     return land_mark
 
-    # modelPoints.push_back(cv::Point3d(0.0f, 0.0f, 0.0f)); //The first must be (0,0,0) while using POSIT
-    # modelPoints.push_back(cv::Point3d(0.0f, -330.0f, -65.0f));
-    # modelPoints.push_back(cv::Point3d(-225.0f, 170.0f, -135.0f));
-    # modelPoints.push_back(cv::Point3d(225.0f, 170.0f, -135.0f));
-    # modelPoints.push_back(cv::Point3d(-150.0f, -150.0f, -125.0f));
-    # modelPoints.push_back(cv::Point3d(150.0f, -150.0f, -125.0f));
-
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
     cam_matrix = np.array([[950, 0, center[0]],
                    [0, 950, center[1]],
                    [0, 0, 1]], dtype = np.float64)
-    # print(eular_angle)
     ##### Convert from degree to radian
     eular_angle = eular_angle
     yaw = eular_angle['angle_y_fc'][0] * math.pi/180
     pitch = eular_angle['angle_p_fc'][0] * math.pi/180
     roll = eular_angle['angle_r_fc'][0] * math.pi/180
-    # print(eular_angle)
     ##### convert the eular_angle to each rotational axis matrix
     rx = np.array([[1,0,0],
                     [0,math.cos(pitch),-math.sin(pitch)],
@@ -299,9 +136,8 @@ def eular_to_image(frame,eular_angle,center,scale):
     rz = np.array([[math.cos(roll), -math.sin(roll), 0],
                     [math.sin(roll), math.cos(roll), 0],
                     [0, 0, 1]])
-    # r_mat = np.matmul(np.matmul(rz,ry),rx)
     r_mat = rz.dot(ry).dot(rx)
-    # print(r_mat)
+
     o = np.array([0,0,frame.shape[1]])
     xAxis = r_mat.dot(np.array([scale,0,0]))+o
     yAxis = r_mat.dot(np.array([0,-scale,0]))+o
@@ -324,17 +160,18 @@ def eular_to_image(frame,eular_angle,center,scale):
     cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
     return z_p2
 
+'''
+Convert given 3d reference point and 2d landmark to obtain
+3d to 2d projection properties
+'''
 def landmark_3d_to_2d(img, landmark_2d):
     cam_matrix = np.array([[950, 0, img.shape[1]/2],
                    [0, 950, img.shape[0]/2],
                    [0, 0, 1]], dtype = np.float64)
-    # rot_mat = np.zeros(4,4)
-    # trans_mat = np.zeros(4,4)
+
     dist_coeffs = np.zeros((4,1))
     landmark_2d = landmark_2d.astype(np.float64)
-    # print(landmark_2d)
-    # print(get_3d_landmark().shape)
-    # print(landmark_2d.shape)
+
     retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
 
     end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
@@ -345,9 +182,6 @@ def landmark_3d_to_2d(img, landmark_2d):
     cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
 
     return end_point_2d
-
-# def transmit_data(data):
-#     transmit
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -475,8 +309,8 @@ def main():
     start_store_time = time.time()
     start_transmit_time = time.time()
     stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
-    transmit_interval = 10
-    sample_interval = 1
+    transmit_interval = 10 # Define server transmission interval
+    sample_interval = 1 # Define data collecting intervals
 
     '''Define area of interest'''
     boxes = np.array([
@@ -681,17 +515,10 @@ def main():
 
                     detection_end_time = time.time()
 
-                # print(stored_data)
-            # if time > oneSecond:
-            #     data.append(newData)
-            #
-            # if time > transmit_interval:
-            #     transmit_data(data)
-
             cam.counter = personContours
             aoi.check_box(end_points)
             aoi.update_info(frame)
-            cam.people_tracking(cam.counter)
+            cam.people_tracking(cam.counter,persons)
 
             '''Convert attributes into dataframe for processing'''
             if int(time.time() - start_store_time) > sample_interval:
@@ -701,6 +528,7 @@ def main():
                     stored_data.loc[len(stored_data)] = list
                 start_store_time = time.time()
 
+            '''Transmit process data at every 5 second'''
             if int(time.time() - start_transmit_time) > transmit_interval:
                 transmit_data(stored_data)
                 stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
@@ -734,6 +562,8 @@ def main():
 
         if is_async_mode:
             cur_request_id, next_request_id = next_request_id, cur_request_id
+
+        '''if frames container larger than 5 frames pop last'''
         if len(frames) > 5:
             numToPop = len(frames)-5
             for _ in range(numToPop): frames.pop();
