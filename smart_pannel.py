@@ -34,11 +34,7 @@ from Person import *
 from Camera import *
 
 '''Global definition'''
-persons = []
 frames = []
-
-
-
 
 '''Function definition'''
 def transmit_data(data):
@@ -48,7 +44,7 @@ def transmit_data(data):
     for key in data.columns:
         transmit_data[key] = data[key].values.tolist()
     try:
-        r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
+        r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
     except Exception as e:
         return
     return
@@ -64,18 +60,10 @@ def build_argparser():
     parser.add_argument("-m_fc", "--model_fc", required=True, type=str)
     parser.add_argument("-m_ag", "--model_ag", required=True, type=str)
     parser.add_argument("-m_attri", "--model_attri", required=True, type=str)
-    parser.add_argument("-m_landmark", "--model_landmark", required=True, type=str)
-    # parser.add_argument("-m_gaze", "--model_gaze", required=True, type=str)
     parser.add_argument("-m_hp", "--model_hp", required=True, type=str)
 
     parser.add_argument("-d", "--device", default="CPU",type=str) # CPU, GPU, FPGA or MYRIAD
-    parser.add_argument("-d_fc", "--device_fc", default="CPU",type=str)
-    parser.add_argument("-d_ag", "--device_ag", default="CPU",type=str)
-    parser.add_argument("-d_attri", "--device_attri", default="CPU", type=str)
-    parser.add_argument("-d_landmak", "--device_landmark", default="CPU",type=str)
-    # parser.add_argument("-d_gaze", "--device_gaze", default="CPU",type=str)
     parser.add_argument("-d_hp", "--device_hp", default="CPU",type=str)
-
 
     parser.add_argument("-pt", "--prob_threshold", default=0.55, type=float)
     parser.add_argument("-pt_face", "--prob_threshold_face", default=0.65, type=float)
@@ -199,23 +187,12 @@ def main():
     model_xml_ag = args.model_ag
     model_bin_ag = os.path.splitext(model_xml_ag)[0] + ".bin"
 
-    model_xml_landmark = args.model_landmark
-    model_bin_landmark = os.path.splitext(model_xml_landmark)[0] + ".bin"
-
-    # model_xml_gaze = args.model_gaze
-    # model_bin_gaze = os.path.splitext(model_xml_gaze)[0] + ".bin"
-
     model_xml_hp = args.model_hp
     model_bin_hp = os.path.splitext(model_xml_hp)[0] + ".bin"
 
     # Plugin initialization for specified device and load extensions library if specified
     log.info("Initializing plugin for {} device...".format(args.device))
     plugin = IEPlugin(device=args.device, plugin_dirs=args.plugin_dir)
-    plugin_fc = IEPlugin(device=args.device_fc, plugin_dirs=args.plugin_dir)
-    plugin_attri = IEPlugin(device=args.device_attri, plugin_dirs=args.plugin_dir)
-    plugin_ag = IEPlugin(device=args.device_ag, plugin_dirs=args.plugin_dir)
-    plugin_landmark = IEPlugin(device=args.device_landmark, plugin_dirs=args.plugin_dir)
-    # plugin_gaze = IEPlugin(device=args.device_gaze, plugin_dirs=args.plugin_dir)
     plugin_hp = IEPlugin(device=args.device_hp, plugin_dirs=args.plugin_dir)
 
     if args.cpu_extension and 'CPU' in args.device:
@@ -227,8 +204,6 @@ def main():
     net_fc = IENetwork.from_ir(model=model_xml_fc, weights=model_bin_fc)
     net_attri = IENetwork.from_ir(model=model_xml_attri, weights=model_bin_attri)
     net_ag = IENetwork.from_ir(model=model_xml_ag, weights=model_bin_ag)
-    net_landmark = IENetwork.from_ir(model=model_xml_landmark, weights=model_bin_landmark)
-    # net_gaze = IENetwork.from_ir(model=model_xml_gaze, weights=model_bin_gaze)
     net_hp = IENetwork.from_ir(model=model_xml_hp, weights=model_bin_hp)
 
     # if "CPU" in plugin.device:
@@ -251,30 +226,23 @@ def main():
     out_blob_fc = next(iter(net_fc.outputs))
     input_blob_attri = next(iter(net_attri.inputs))
     out_blob_attri = next(iter(net_attri.outputs))
-    input_blob_landmark = next(iter(net_landmark.inputs))
-    out_blob_landmark = next(iter(net_landmark.outputs))
-    # input_blob_gaze = next(iter(net_gaze.inputs))
-    # out_blob_gaze = next(iter(net_gaze.outputs))
     input_blob_ag = next(iter(net_ag.inputs))
     input_blob_hp = next(iter(net_hp.inputs))
 
     log.info("Loading IR to the plugin...")
     exec_net = plugin.load(network=net, num_requests=2)
     exec_net_face = plugin.load(network=net_fc, num_requests=2)
-    exec_net_attri = plugin_ag.load(network=net_attri, num_requests=2)
-    exec_net_age = plugin_ag.load(network=net_ag, num_requests=2)
-    exec_net_landmark = plugin_landmark.load(network=net_landmark, num_requests=2)
-    # exec_net_gaze = plugin_gaze.load(network=net_gaze, num_requests=2)
-    exec_net_hp = plugin_landmark.load(network=net_hp, num_requests=2)
+    exec_net_attri = plugin.load(network=net_attri, num_requests=2)
+    exec_net_age = plugin.load(network=net_ag, num_requests=2)
+    exec_net_hp = plugin_hp.load(network=net_hp, num_requests=2)
 
     # Read and pre-process input image
     n, c, h, w = net.inputs[input_blob]
     n_fc, c_fc, h_fc, w_fc = net_fc.inputs[input_blob_fc]
     n_attri, c_attri, h_attri, w_attri = net_attri.inputs[input_blob_attri]
     n_ag, c_ag, h_ag, w_ag = net_ag.inputs[input_blob_ag]
-    n_lm, c_lm, h_lm, w_lm = net_landmark.inputs[input_blob_landmark]
     n_hp, c_hp, h_hp, w_hp = net_hp.inputs[input_blob_hp]
-    del net, net_ag, net_fc, net_attri, net_landmark, net_hp
+    del net, net_ag, net_fc, net_attri, net_hp
 
     if args.input == 'cam':
         input_stream = 0
@@ -295,8 +263,7 @@ def main():
     log.info("To stop the sample execution press Esc button")
     is_async_mode = True
     render_time = 0
-    last_frame_p_num = 0
-    statistics_person = 0
+
     frame_detection_interval = 0 #ms
     detection_end_time = 0
     cam = Camera(input_stream)
@@ -386,7 +353,6 @@ def main():
                     #get rid off small face
                     # DEBUG: # print(camera_are/face_area)
                     if camera_are/face_area < 100:
-                        # print(camera_are/face_area)
                         cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 2)
                         #central of the face
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
@@ -425,53 +391,6 @@ def main():
                             personContours.append(personAttributes)
                             # aoi.check_box(end_point)
 
-                            ##### draw landmark
-                            face_landmark = frame_process(face, n_lm, c_lm, h_lm, w_lm)
-                            res_landmark = exec_net_landmark.infer({input_blob_landmark : face_landmark})[out_blob_landmark][0].reshape(-1)
-                            _w_fc = xmax_fc - xmin_fc
-                            _h_fc = ymax_fc - ymin_fc
-
-                            ##### landmark, left_eye, right_eye, nose, lip left, lip right
-                            x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0::2]]
-                            # print('*************')
-                            y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1::2]]
-                            landmark_2d = np.stack((np.asarray(x_lm),np.asarray(y_lm)), axis = -1)
-                            ##### Data filtering by average several landmark points
-                            # landmark_2d_array = np.concatenate((landmark_2d_array,landmark_2d), axis = 2)
-                            # landmark_2d_array.append(landmark_2d)
-                            # landmark_2d = np.mean(np.array(landmark_2d_array), axis = 0)
-                            # end_point_2d = landmark_3d_to_2d(frame, landmark_2d).astype(np.int)
-                            # if len(landmark_2d_array) > 3:
-                            #     landmark_2d_array.pop(0)
-                            # x_lm = [xmin_fc + x * _w_fc for x in res_landmark[0:4:2]]
-                            # y_lm = [ymin_fc + y * _h_fc for y in res_landmark[1:5:2]]
-
-                            eyes = []
-                            for _x_lm, _y_lm in zip(x_lm, y_lm):
-                                cv2.circle(frame, (int(_x_lm), int(_y_lm)), 3, (125,255,0), 2)
-                                # eye_y is 1/8 of the face, eye_x is 1/4 of the face
-                                eye_ymin = int(_y_lm - 1/7 * _h_fc)
-                                eye_ymax = int(_y_lm + 1/7 * _h_fc)
-                                eye_xmin = int(_x_lm - 1/3 * _w_fc )
-                                eye_xmax = int(_x_lm + 1/3 * _w_fc)
-                                # cv2.rectangle(frame, (eye_xmin, eye_ymin), (eye_xmax, eye_ymax), (125,255,0), 1)
-                                eyes.append(frame[eye_ymin : eye_ymax, eye_xmin : eye_xmax])
-
-                            ##### face gaze model
-                            right_eye = eyes[0]
-                            left_eye = eyes[1]
-                            #### binary face
-                            height, width, _ = frame.shape
-                            binary_face = np.ones((height,width))
-                            mask = cv2.rectangle(binary_face, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), 0, -1)
-                            # binary_face = cv2.resize(mask, (25, 25)).reshape(1,-1,1,1)
-                            # in_right_eye = frame_process(right_eye, 1, 3, 224, 224)
-                            # in_left_eye = frame_process(left_eye, 1, 3, 224, 224)
-                            # in_face_gaze = frame_process(face, 1, 3, 224, 224)
-                            # res_gaze = exec_net_gaze.infer({"image_left": in_left_eye, "image_right":in_right_eye, "image_face": in_face_gaze, "face_grid":binary_face})['fc3'][0]
-                            # print(res_gaze)
-                            # points = [width/2 + (1280/30)*res_gaze[0], height/2 - (720/15)*res_gaze[1]]
-                            # cv2.circle(frame, (int(points[0]), int(points[1])), 2, (125,255,0), 1)
                             cv2.putText(frame, str(sex) +", "+str(age), (xmin_fc + 100, ymin_fc - 7),
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
 
@@ -497,7 +416,6 @@ def main():
                                 class_id = int(obj[1])
                                 color = (min(class_id * 12.5, 255), min(class_id * 7, 255), min(class_id * 5, 255))
                                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2)
-                                # rect = (xCenter, yCenter, width, height)
                                 cv2.circle(frame, (xCenter, yCenter), 5, (0,255,0), 3)
 
                                 try:
@@ -508,33 +426,29 @@ def main():
                                 except Exception as e:
                                     pass
 
-                                # print(res_attri)
-                    #det_label = labels_map[class_id] if labels_map else str(class_id)
-                    # cv2.putText(frame, det_label + ' ' + str(round(obj[2] * 100, 1)) + ' %', (xmin, ymin - 7),
-                    #             cv2.FONT_HERSHEY_COMPLEX, 0.6, color, 1)
-
                     detection_end_time = time.time()
 
-            cam.counter = personContours
             aoi.check_box(end_points)
             aoi.update_info(frame)
-            cam.people_tracking(cam.counter,persons)
+            cam.people_tracking(personContours)
+            final_data = cam.persons
 
-            '''Convert attributes into dataframe for processing'''
-            if int(time.time() - start_store_time) > sample_interval:
-                for i in range(len(persons)):
-                    list = persons[i].getAttris()
-                    list.insert(0,str(datetime.now().strftime("%x-%X")))
-                    stored_data.loc[len(stored_data)] = list
-                start_store_time = time.time()
+            #only pass the data while getting detection
+            if len(personContours) != 0:
+                '''Convert attributes into dataframe for processing'''
+                if int(time.time() - start_store_time) > sample_interval:
+                    for i in range(len(final_data)):
+                        list = final_data[i].getAttris()
+                        list.insert(0,str(datetime.now().strftime("%x-%X")))
+                        stored_data.loc[len(stored_data)] = list
+                    start_store_time = time.time()
 
-            '''Transmit process data at every 5 second'''
-            if int(time.time() - start_transmit_time) > transmit_interval:
-                transmit_data(stored_data)
-                stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+                '''Transmit process data at every 5 second'''
+                if int(time.time() - start_transmit_time) > transmit_interval:
+                    transmit_data(stored_data)
+                    stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
 
-                start_transmit_time = time.time()
-
+                    start_transmit_time = time.time()
 
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
@@ -542,7 +456,7 @@ def main():
         render_time_message = "OpenCV rendering time: {:.3f} ms".format(render_time * 1000)
         async_mode_message = "Async mode is on. Processing request {}".format(cur_request_id) if is_async_mode else \
             "Async mode is off. Processing request {}".format(cur_request_id)
-        statistics_population ="Total {} people pass the screen".format(entered)
+        statistics_population ="Total {} people pass the screen".format(cam.entered)
         cv2.putText(frame, inf_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (200, 10, 10), 1)
         cv2.putText(frame, render_time_message, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
         cv2.putText(frame, statistics_population, (15, 45), cv2.FONT_HERSHEY_COMPLEX, 0.5,
