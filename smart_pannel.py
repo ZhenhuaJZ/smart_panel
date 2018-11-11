@@ -95,17 +95,16 @@ def transmit_data(stored_data):
         if time.time() - start_time > transmit_time:
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
-            print("############Transmiiting data##########\n",stored_data)
+            # print("############Transmiiting data##########\n",stored_data)
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
             try:
-                r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
+                r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
-                print('unable to connect')
+                # print('unable to connect')
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
-
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
@@ -113,17 +112,16 @@ def frame_process(frame, n, c, h, w):
     in_frame = in_frame.reshape((n, c, h, w))
     return in_frame
 
-def get_3d_landmark():
-    land_mark = np.array([
-    [-170, 170, -135], # Left eye left corner
-    [170, 170, -135], # Right eye right corner
-    [0, 0,  0], # Nose
-    [-150, -150, -125], # Left Mouth corner
-    [150, -150, -125],
-    ]
-    )
-
-    return land_mark
+# def get_3d_landmark():
+#     land_mark = np.array([
+#     [-170, 170, -135], # Left eye left corner
+#     [170, 170, -135], # Right eye right corner
+#     [0, 0,  0], # Nose
+#     [-150, -150, -125], # Left Mouth corner
+#     [150, -150, -125],
+#     ]
+#     )
+    # return land_mark
 
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
@@ -170,29 +168,6 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
     cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
     return z_p2
-
-'''
-Convert given 3d reference point and 2d landmark to obtain
-3d to 2d projection properties
-'''
-# def landmark_3d_to_2d(img, landmark_2d):
-#     cam_matrix = np.array([[950, 0, img.shape[1]/2],
-#                    [0, 950, img.shape[0]/2],
-#                    [0, 0, 1]], dtype = np.float64)
-#
-#     dist_coeffs = np.zeros((4,1))
-#     landmark_2d = landmark_2d.astype(np.float64)
-#
-#     retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
-#
-#     end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
-#
-#     end_point_2d, _ = cv2.projectPoints(end_point_3d, rvec, tvec, cam_matrix, dist_coeffs)
-#     end_point_2d = end_point_2d.astype(np.int)
-#     landmark_2d = landmark_2d.astype(np.int)
-#     cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
-#
-#     return end_point_2d
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -314,7 +289,7 @@ def main():
     try:
         _thread.start_new_thread(capture_frame,(cam,))
         _thread.start_new_thread(frames_manage,(frames,))
-        _thread.start_new_thread(store_data,(persons, stored_data,))
+        _thread.start_new_thread(store_data,(cam.stable_persons, stored_data,))
         _thread.start_new_thread(transmit_data,(stored_data,))
     except:
         raise
@@ -378,7 +353,6 @@ def main():
                     #get rid off small face
                     # DEBUG: # print(camera_are/face_area)
                     if camera_are/face_area < 100:
-                        cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 2)
                         #central of the face
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
                         yCenter_fc = int(ymin_fc + (height_fc)/2)
@@ -402,12 +376,7 @@ def main():
                             ##### head pose
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
                             res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
-                            # head_pose = []
-                            # # print(res_hp)
-                            # for key in res_hp.keys():
-                            #     # print(key)
-                            #     head_pose.append(res_hp[key][0])
-                            #     # print(res_hp[key][0])
+
                             end_point = eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
                             proj = aoi.check_project(end_point)
@@ -455,23 +424,16 @@ def main():
 
             aoi.check_box(end_points)
             aoi.update_info(frame)
-            cam.people_tracking(cam.counter,persons)
+            cam.people_tracking(personContours)
 
-            '''Convert attributes into dataframe for processing'''
-            # if int(time.time() - start_store_time) > sample_interval:
-            #     for i in range(len(persons)):
-            #         list = persons[i].getAttris()
-            #         list.insert(0,str(datetime.now().strftime("%x-%X")))
-            #         stored_data.loc[len(stored_data)] = list
-            #     start_store_time = time.time()
-
-            '''Transmit process data at every 5 second'''
-            # if int(time.time() - start_transmit_time) > transmit_interval:
-            #     transmit_data(stored_data)
-            #     stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
-            #
-            #     start_transmit_time = time.time()
-
+            #display the pid icon and draw face bounding box
+            for f, p in zip(cam.bounding_box, cam.display_pid):
+                xmin_fc = int(f[0] - f[2]/2)
+                ymin_fc = int(f[1] - f[3]/2)
+                xmax_fc = xmin_fc + f[2]
+                ymax_fc = ymin_fc + f[3]
+                cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 2)
+                cv2.putText(frame, "pid" + str(p), (xmin_fc, ymin_fc), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
 
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
@@ -500,10 +462,6 @@ def main():
         if is_async_mode:
             cur_request_id, next_request_id = next_request_id, cur_request_id
 
-        '''if frames container larger than 5 frames pop last'''
-        # if len(frames) > 5:
-        #     numToPop = len(frames)-5
-        #     for _ in range(numToPop): frames.pop();
     cv2.destroyAllWindows()
     del exec_net
     del plugin
