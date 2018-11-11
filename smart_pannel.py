@@ -37,17 +37,6 @@ from Camera import *
 frames = []
 
 '''Function definition'''
-def transmit_data(data):
-    transmit_data = {"key_order": data.columns} # Save dataframe order first
-    data.fillna(-1,inplace = True) # Process None data
-    print(data)
-    for key in data.columns:
-        transmit_data[key] = data[key].values.tolist()
-    try:
-        r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
-    except Exception as e:
-        return
-    return
 
 def build_argparser():
     parser = ArgumentParser()
@@ -75,14 +64,48 @@ def build_argparser():
                              "impl.", type=str, default=None)
     return parser
 
+'''frames capturing and manage threading functions'''
 def capture_frame(cam):
     while cam.video.isOpened():
         frames.insert(0, cam.frameDetections());
 
-def frames_manage():
-    print(len(frames))
-    if len(frames) > 5:
-        frames.pop(-1)
+def frames_manage(frames):
+    while 1:
+        if len(frames) > 5:
+            # print('poping frames', len(frames))
+            frames.pop(-1)
+
+'''thread for store and transmit data'''
+def store_data(persons,stored_data):
+    start_time = time.time()
+    while 1:
+        # print('time', time.time()-start_time)
+        if time.time()-start_time >= 1:
+            for i in range(len(persons)):
+                list = persons[i].getAttris()
+                list.insert(0,str(datetime.now().strftime("%x-%X")))
+                stored_data.loc[len(stored_data)] = list
+            start_time = time.time()
+            # print("store_data\n",stored_data)
+
+def transmit_data(stored_data):
+    transmit_time = 10
+    start_time = time.time()
+    while 1:
+        if time.time() - start_time > transmit_time:
+            transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
+            stored_data.fillna(-1,inplace = True) # Process None data
+            print("############Transmiiting data##########\n",stored_data)
+            for key in stored_data.columns:
+                transmit_data[key] = stored_data[key].values.tolist()
+            try:
+                r = requests.post('http://127.0.0.1:5000/count',data = transmit_data)
+            except Exception as e:
+                print('unable to connect')
+                pass
+            start_time = time.time()
+            stored_data.drop(stored_data.index, inplace = True)
+
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
@@ -152,24 +175,24 @@ def eular_to_image(frame,eular_angle,center,scale):
 Convert given 3d reference point and 2d landmark to obtain
 3d to 2d projection properties
 '''
-def landmark_3d_to_2d(img, landmark_2d):
-    cam_matrix = np.array([[950, 0, img.shape[1]/2],
-                   [0, 950, img.shape[0]/2],
-                   [0, 0, 1]], dtype = np.float64)
-
-    dist_coeffs = np.zeros((4,1))
-    landmark_2d = landmark_2d.astype(np.float64)
-
-    retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
-
-    end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
-
-    end_point_2d, _ = cv2.projectPoints(end_point_3d, rvec, tvec, cam_matrix, dist_coeffs)
-    end_point_2d = end_point_2d.astype(np.int)
-    landmark_2d = landmark_2d.astype(np.int)
-    cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
-
-    return end_point_2d
+# def landmark_3d_to_2d(img, landmark_2d):
+#     cam_matrix = np.array([[950, 0, img.shape[1]/2],
+#                    [0, 950, img.shape[0]/2],
+#                    [0, 0, 1]], dtype = np.float64)
+#
+#     dist_coeffs = np.zeros((4,1))
+#     landmark_2d = landmark_2d.astype(np.float64)
+#
+#     retval, rvec, tvec = cv2.solvePnP(get_3d_landmark().astype(np.float64), landmark_2d, cam_matrix, dist_coeffs)
+#
+#     end_point_3d = np.array([[0.0, 0.0, 1000.0]]) # 0.0, 0.0, 2000.0
+#
+#     end_point_2d, _ = cv2.projectPoints(end_point_3d, rvec, tvec, cam_matrix, dist_coeffs)
+#     end_point_2d = end_point_2d.astype(np.int)
+#     landmark_2d = landmark_2d.astype(np.int)
+#     cv2.line(img,(landmark_2d[2,:][0],landmark_2d[2,:][1]),(end_point_2d[0][0][0],end_point_2d[0][0][1]),[255,0,0],4)
+#
+#     return end_point_2d
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -290,7 +313,9 @@ def main():
 
     try:
         _thread.start_new_thread(capture_frame,(cam,))
-        _thread.start_new_thread(frames_manage,())
+        _thread.start_new_thread(frames_manage,(frames,))
+        _thread.start_new_thread(store_data,(persons, stored_data,))
+        _thread.start_new_thread(transmit_data,(stored_data,))
     except:
         raise
 
@@ -430,25 +455,23 @@ def main():
 
             aoi.check_box(end_points)
             aoi.update_info(frame)
-            cam.people_tracking(personContours)
-            final_data = cam.persons
+            cam.people_tracking(cam.counter,persons)
 
-            #only pass the data while getting detection
-            if len(personContours) != 0:
-                '''Convert attributes into dataframe for processing'''
-                if int(time.time() - start_store_time) > sample_interval:
-                    for i in range(len(final_data)):
-                        list = final_data[i].getAttris()
-                        list.insert(0,str(datetime.now().strftime("%x-%X")))
-                        stored_data.loc[len(stored_data)] = list
-                    start_store_time = time.time()
+            '''Convert attributes into dataframe for processing'''
+            # if int(time.time() - start_store_time) > sample_interval:
+            #     for i in range(len(persons)):
+            #         list = persons[i].getAttris()
+            #         list.insert(0,str(datetime.now().strftime("%x-%X")))
+            #         stored_data.loc[len(stored_data)] = list
+            #     start_store_time = time.time()
 
-                '''Transmit process data at every 5 second'''
-                if int(time.time() - start_transmit_time) > transmit_interval:
-                    transmit_data(stored_data)
-                    stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+            '''Transmit process data at every 5 second'''
+            # if int(time.time() - start_transmit_time) > transmit_interval:
+            #     transmit_data(stored_data)
+            #     stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+            #
+            #     start_transmit_time = time.time()
 
-                    start_transmit_time = time.time()
 
         # Draw performance stats
         inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
@@ -478,9 +501,9 @@ def main():
             cur_request_id, next_request_id = next_request_id, cur_request_id
 
         '''if frames container larger than 5 frames pop last'''
-        if len(frames) > 5:
-            numToPop = len(frames)-5
-            for _ in range(numToPop): frames.pop();
+        # if len(frames) > 5:
+        #     numToPop = len(frames)-5
+        #     for _ in range(numToPop): frames.pop();
     cv2.destroyAllWindows()
     del exec_net
     del plugin
