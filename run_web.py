@@ -6,7 +6,7 @@ from flask import Flask, jsonify, make_response, request, render_template
 import sqlite3 as sql
 
 from bokeh.plotting import figure, show
-from bokeh.models import AjaxDataSource, CustomJS, NumeralTickFormatter, DatetimeTickFormatter
+from bokeh.models import AjaxDataSource, CustomJS, DatetimeTickFormatter, Range1d, DataRange1d
 from bokeh.embed import components
 from bokeh.resources import INLINE
 from bokeh.util.string import encode_utf8
@@ -76,30 +76,32 @@ def graph():
     source = AjaxDataSource(data = ajax_input, data_url='http://127.0.0.1:5000/data',
                             polling_interval= ajax_refresh_inter * 1000) #adapter=adapter)
 
-    p = figure(plot_height=300, plot_width=800, x_axis_type = "datetime", y_range = (0,10), 
+    p = figure(plot_height=300, plot_width=800, x_axis_type = "datetime", tools="wheel_zoom,reset",
                title="People Viewing Statistics")
     p.line(x= 'x', y= 'y', line_dash="4 4", line_width=3, color='gray', source=source)
     p.vbar(x= 'x', top='y5', width=200, alpha=0.5, color='red', legend='female', source=source) #female
     p.vbar(x= 'x1', top='y6', width=200, alpha=0.5, color='blue', legend='male', source=source) #male
     p.xaxis.formatter = DatetimeTickFormatter(milliseconds=["%X"],seconds=["%X"],minutes=["%X"],hours=["%X"])
+    p.y_range = DataRange1d(start = 0, range_padding = 5) #padding leave margin on the top
+    p.legend.orientation = "horizontal" #legend horizontal
+    p.xaxis.axis_label = 'Time'
+    p.yaxis.axis_label = 'Number'
     # p.x_range.follow = "end"
     # p.x_range.follow_interval = timedelta(seconds=30)
 
-    p2 = figure(plot_height=300, plot_width=800, x_axis_type = "datetime",
+    p2 = figure(plot_height=300, plot_width=800, x_axis_type = "datetime",tools="wheel_zoom,reset",
                title="Project Viewing Statistics")
     p2.line(x = 'x', y = 'y1', line_width=3, color='#FB9A99', legend='p1', source=source) #p1
     p2.line(x = 'x', y = 'y2', line_width=3, color='#A6CEE3', legend='p2', source=source) #p2
     p2.line(x = 'x', y = 'y3', line_width=3, color='black', legend='p3', source=source) #p3
     p2.line(x = 'x', y = 'y4', line_width=3, color='#33A02C', legend='p4', source=source) #p4
     p2.xaxis.formatter = DatetimeTickFormatter(milliseconds=["%X"],seconds=["%X"],minutes=["%X"],hours=["%X"])
+    p2.y_range = DataRange1d(start = 0, range_padding = 10) #padding leave margin on the top
+    p2.legend.orientation = "horizontal"
+    p2.xaxis.axis_label = 'Time'
+    p2.yaxis.axis_label = 'Number'
     # p2.x_range.follow = "end"
     # p2.x_range.follow_interval = timedelta(seconds=30)
-
-
-
-    #p3 = figure(plot_height=350,
-               #toolbar_location=None, tools="")
-
 
     js_resources = INLINE.render_js()
     css_resources = INLINE.render_css()
