@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+
+<html>
+    <head>
+        <style>
+            #wrapper { display: flex; }
+            #left { flex: 0 0 50%; }
+            #right { flex: 1; }
+            #wide { flex: 0 0 90% }
+        </style>
+
+        <title>Multiple realtime charts with Bokeh</title>
+        <link href="http://cdn.pydata.org/bokeh/release/bokeh-0.12.6.min" rel="stylesheet">
+        <link href="http://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.6.min.css" rel="stylesheet">
+
+        <script src="http://cdn.pydata.org/bokeh/release/bokeh-0.12.6.min.js"></script>
+        <script src="http://cdn.pydata.org/bokeh/release/bokeh-widgets-0.12.6.min.js"></script>
+
+        <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+
+
+    </head>
+
+    <body>
+        <div id="wrapper">
+            <div id="left">
+                <h1>left graph</h1>
+                {{ div1 | safe }}
+                {{ script1 | safe }}
+            </div>
+
+            <div id="right">
+                <h1>right graph</h1>
+                {{ div2 | safe }}
+                {{ script2 | safe }}
+            </div>
+        </div>
+    </body>
+</html>
