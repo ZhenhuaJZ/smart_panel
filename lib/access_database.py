@@ -23,7 +23,8 @@ def create_table(conn, create_table_sql):
     :return:
     """
     """init pid = 0, -1 male and femal """
-    value = [['None', 0, 0, 0, 0 ,0, 0, 0, 0, 0, 0], ['None', -1, 0, 0, 0 ,0, 0, 1, 0, 0, 0]]
+    """ gmt_occur, pid, proj_a, proj_b, proj_c, proj_d, age, gender, enter_t, exit_t, dur"""
+    value = [['None', 0, 1, 1, 1 ,1, 0, 0, 0, 0, 0], ['None', -1, 1, 1, 1 ,1, 0, 1, 0, 0, 0]]
 
     try:
         c = conn.cursor()

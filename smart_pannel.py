@@ -93,6 +93,7 @@ def transmit_data(persons, stored_data):
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
+            del persons[:] #reflash list !!!!
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
@@ -344,7 +345,7 @@ def main():
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
-                            cv2.imshow("face", face)
+                            # cv2.imshow("face", face)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
