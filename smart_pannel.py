@@ -93,6 +93,7 @@ def transmit_data(persons, stored_data):
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
+            del persons[:] #reflash list !!!!
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
