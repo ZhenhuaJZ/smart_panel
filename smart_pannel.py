@@ -72,31 +72,18 @@ def frames_manage(frames):
             frames.pop(-1)
 
 '''thread for store and transmit data'''
-def store_data(persons,stored_data):
-    start_time = time.time()
-    while 1:
-        # print('time', time.time()-start_time)
-        if time.time()-start_time >= 1:
-            for i in range(len(persons)):
-                list = persons[i].getAttris()
-                list.insert(0,str(datetime.now().strftime("%x-%X")))
-                stored_data.loc[len(stored_data)] = list
-            start_time = time.time()
-            # print("store_data\n",stored_data)
-
-def transmit_data(stored_data):
+def transmit_data(persons, stored_data):
     transmit_time = 10
     start_time = time.time()
     while 1:
         if time.time() - start_time > transmit_time:
-
-            # for i in range(len(persons)):
-            #     list = persons[i].getAttris()
-            #     list.insert(0,str(datetime.now().strftime("%x-%X")))
-            #     stored_data.loc[len(stored_data)] = list
+            for i in range(len(persons)):
+                list = persons[i].getAttris()
+                list.insert(0,str(datetime.now().strftime("%x-%X")))
+                stored_data.loc[len(stored_data)] = list
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
-            # print("############Transmiiting data##########\n",stored_data)
+            print("############Transmiiting data##########\n",stored_data)
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
             try:
@@ -287,8 +274,7 @@ def main():
     try:
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
-        _thread.start_new_thread(store_data,(cam.valid_persons, stored_data,))
-        _thread.start_new_thread(transmit_data,(stored_data,))
+        _thread.start_new_thread(transmit_data,(cam.valid_persons,stored_data,))
     except:
         raise
 
