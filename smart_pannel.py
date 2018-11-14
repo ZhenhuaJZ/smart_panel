@@ -116,9 +116,12 @@ def eular_to_image(frame,eular_angle,center,scale):
                    [0, 0, 1]], dtype = np.float64)
     ##### Convert from degree to radian
     eular_angle = eular_angle
-    yaw = eular_angle['angle_y_fc'][0] * math.pi/180
-    pitch = eular_angle['angle_p_fc'][0] * math.pi/180
-    roll = eular_angle['angle_r_fc'][0] * math.pi/180
+    # yaw = eular_angle['angle_y_fc'][0] * math.pi/180
+    # pitch = eular_angle['angle_p_fc'][0] * math.pi/180
+    # roll = eular_angle['angle_r_fc'][0] * math.pi/180
+    yaw = eular_angle[0,0] * math.pi/180
+    pitch = eular_angle[0,1] * math.pi/180
+    roll = eular_angle[0,2] * math.pi/180
     ##### convert the eular_angle to each rotational axis matrix
     rx = np.array([[1,0,0],
                     [0,math.cos(pitch),-math.sin(pitch)],
@@ -262,8 +265,11 @@ def main():
     transmit_interval = 10 # Define server transmission interval
     sample_interval = 1 # Define data collecting intervals
     frames = [] # Buffer container for video frame stream
+    head_pose_array = np.zeros((1,3))
+    head_pose_mean = np.zeros((1,3))
 
-    '''Define area of interest'''
+    '''Define projects and project area of interest'''
+    project_key = ["a","b","c","d"]
     boxes = np.array([
     [0, cam.h/2, cam.w/2, 0],
     [cam.w/2, cam.h/2, cam.w, 0],
@@ -345,10 +351,8 @@ def main():
                         try:
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
-                            face = cv2.medianBlur(face,7) # Medium blur to reduce noise in image
-                            # face = frame[frame > ymin_fc and frame < ymin_fc and frame > xmin_fc and frame<xmax_fc]
-                            # cv2.imshow('window',face)
-                            # cv2.waitKey(10)
+                            face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
+                            cv2.imshow("face", face)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
@@ -358,17 +362,38 @@ def main():
                             personAttributes["age"] =age
                             personAttributes["gender"] = sex
 
-                            ##### head pose
+                            '''Head pose recognition and process'''
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
                             res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
 
-                            end_point = eular_to_image(frame,res_hp,np.array([xCenter_fc, yCenter_fc]), 300)
+                            '''Noise reduction for detected eular angle'''
+                            # TODO: Improve accuracy
+                            head_pose = np.array([[res_hp['angle_y_fc'][0][0],res_hp['angle_p_fc'][0][0],res_hp['angle_r_fc'][0][0]]])
+                            head_pose_rmse = np.sqrt(np.mean(head_pose - head_pose_mean)**2)
+                            if head_pose_rmse < 2:
+                                head_pose_array = np.vstack([head_pose_array,head_pose])
+                                head_pose_mean = np.mean(head_pose_array,0).reshape(1,3)
+                            else:
+                                head_pose_array = head_pose
+                                head_pose_mean = head_pose
+
+                            '''Remove excessive head pose from array'''
+                            if len(head_pose_array) > 15:
+                                head_pose_array = np.delete(head_pose_array, 0, 0)
+
+                            '''Calculate end point position of the given pose and determine
+                               focusing project and its duration for the frame'''
+                            end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
                             proj = aoi.check_project(end_point)
-                            personAttributes["project"] = proj
-
+                            projects = {"a": 0, "b": 0, "c": 0, "d": 0}
+                            if proj != None:
+                                stayed_time = round(time.time()-inf_start,2)
+                                projects[project_key[proj]] = stayed_time
+                                personAttributes["project"] = projects
+                            else:
+                                personAttributes["project"] = projects
                             personContours.append(personAttributes)
-                            # aoi.check_box(end_point)
 
                             cv2.putText(frame, str(sex) +", "+str(age), (xmin_fc + 100, ymin_fc - 7),
                                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
