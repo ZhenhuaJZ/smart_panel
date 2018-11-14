@@ -97,20 +97,6 @@ def graph():
     p2.xaxis.axis_label = 'Project'
     p2.yaxis.axis_label = 'Number'
 
-    # p2 = figure(plot_height=300, plot_width=800, x_axis_type = "datetime",tools="wheel_zoom,reset",
-    #            title="Project Viewing Statistics")
-    # p2.line(x = 'x_time', y = 'y1', line_width=3, color='#FB9A99', legend='p1', source=source) #p1
-    # p2.line(x = 'x_time', y = 'y2', line_width=3, color='#A6CEE3', legend='p2', source=source) #p2
-    # p2.line(x = 'x_time', y = 'y3', line_width=3, color='black', legend='p3', source=source) #p3
-    # p2.line(x = 'x_time', y = 'y4', line_width=3, color='#33A02C', legend='p4', source=source) #p4
-    # p2.xaxis.formatter = DatetimeTickFormatter(milliseconds=["%X"],seconds=["%X"],minutes=["%X"],hours=["%X"])
-    # p2.y_range = DataRange1d(start = 0, range_padding = 10) #padding leave margin on the top
-    # p2.legend.orientation = "horizontal"
-    # p2.xaxis.axis_label = 'Time'
-    # p2.yaxis.axis_label = 'Number'
-    # p2.x_range.follow = "end"
-    # p2.x_range.follow_interval = timedelta(seconds=30)
-
     js_resources = INLINE.render_js()
     css_resources = INLINE.render_css()
 
@@ -204,11 +190,6 @@ def data():
         for o_inner in o:
             if o_inner[0] == 0 : y_female_proj.append(o_inner[1] -sql_init_gender); x_female_proj.append(i*4 + 1.75) #[#1, #2, #3, #4] how many female view p1-p4
             if o_inner[0] == 1 : y_male_proj.append(o_inner[1] -sql_init_gender); x_male_proj.append(i*4 + 1.75 + f2_vbar_interval) #how many male view p1-p
-
-    # y1.append(o3[0][1]-sql_init) #p1
-    # y2.append(o3[1][1]-sql_init) #p2
-    # y3.append(o3[2][1]-sql_init) #p3
-    # y4.append(o3[3][1]-sql_init) #p4
 
     if len(x_time) < 2: #init
         return jsonify(x_time=[], y=[], x1_time=[], y_female=[], y_male=[], x_female_proj=[], y_female_proj=[], x_male_proj=[], y_male_proj=[])

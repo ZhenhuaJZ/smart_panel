@@ -100,7 +100,7 @@ class Camera(object):
 
                         print("[MOVE] q2 pid{} -> q3".format(p.getId2()))
                         p = self.stable_persons[cur_indexlist[key]]
-                        p.updateLeavetime(time.time()) #update person leave time
+                        p.updateLeavetime(time.time()-self.sys_clear_time) #update person leave time
                         self.valid_persons.append(p)
 
                 except Exception as e:
