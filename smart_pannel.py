@@ -83,7 +83,7 @@ def transmit_data(persons, stored_data):
                 stored_data.loc[len(stored_data)] = list
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
-            print("############Transmiiting data##########\n",stored_data)
+            # print("############Transmiiting data##########\n",stored_data)
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
             try:
@@ -344,7 +344,7 @@ def main():
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
-                            cv2.imshow("face", face)
+                            # cv2.imshow("face", face)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
