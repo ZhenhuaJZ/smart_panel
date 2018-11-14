@@ -89,6 +89,11 @@ def transmit_data(stored_data):
     start_time = time.time()
     while 1:
         if time.time() - start_time > transmit_time:
+
+            # for i in range(len(persons)):
+            #     list = persons[i].getAttris()
+            #     list.insert(0,str(datetime.now().strftime("%x-%X")))
+            #     stored_data.loc[len(stored_data)] = list
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
             # print("############Transmiiting data##########\n",stored_data)
@@ -261,7 +266,8 @@ def main():
     '''Variable Definition'''
     start_store_time = time.time()
     start_transmit_time = time.time()
-    stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
+    stored_data = pd.DataFrame(columns = ['gmt_occur', 'pid', 'proj_a', 'proj_b', 'proj_c',
+                                            'proj_d', 'age', 'gender','enter_t','exit_t','dur'])
     transmit_interval = 10 # Define server transmission interval
     sample_interval = 1 # Define data collecting intervals
     frames = [] # Buffer container for video frame stream
