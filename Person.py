@@ -9,8 +9,8 @@ class Person:
         self.enter_t = enter_t
         self.exit_t = -1
 
-        self.a1 = -1 #gender
-        self.a2 = -1 #age
+        self.age = -1 #age
+        self.gender = -1 #gender
         self.proj = -1
 
         self.avg_age = []
@@ -32,11 +32,11 @@ class Person:
         self.x = newX
         self.y = newY
     def updateAttris(self, age, gender, proj):
-        self.a1 = gender
-        self.a2 = age
+        self.age = age
+        self.gender = gender
         self.proj = proj
     def updateLeavetime(self, leave_time):
         self.exit_t = leave_time
     def getAttris(self):
         # return [self.id, self.proj, self.a1, self.a2, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
-        return [self.id, self.proj, self.a1, self.a2]
+        return [self.id, self.proj, self.age, self.gender]

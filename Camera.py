@@ -146,7 +146,7 @@ class Camera(object):
                     self.stable_pid += 1
 
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(gender, age, proj)
+                p.updateAttris(age, gender, proj)
 
                 if dist <= w and dist <=h:
                     if inActiveZone:
@@ -168,7 +168,7 @@ class Camera(object):
 
             for index, p in enumerate(self.stable_persons):
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(gender, age, proj)
+                p.updateAttris(age, gender, proj)
 
                 if dist <= w and dist <=h:
                     if inActiveZone:
