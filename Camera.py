@@ -97,8 +97,11 @@ class Camera(object):
                         self.stable_persons.pop(cur_indexlist[key])
                         cur_checklist.pop(key)
                         self.entered += 1
-                        ## DEBUG:
-                        #print("[INFO] stay in q2 pid = " , [k for k in cur_checklist.keys()])
+
+                        print("[MOVE] q2 pid{} -> q3".format(p.getId2()))
+                        p = self.stable_persons[cur_indexlist[key]]
+                        p.updateLeavetime(time.time()) #update person leave time
+                        self.valid_persons.append(p)
 
                 except Exception as e:
                     pass
@@ -184,9 +187,12 @@ class Camera(object):
                             self.stable_last_checklist.pop("pid" + str(p.getId2())) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
+
+                        print("[MOVE] q2 pid{} -> q3".format(p.getId2()))
                         self.stable_persons.pop(index)
-                        # p.updateLeavetime(time.time()) #update person leave time
-                        # self.valid_persons.append(p)
+                        p.updateLeavetime(time.time()) #update person leave time
+                        self.valid_persons.append(p)
+
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
                 print("[CREAT] new person " + str(self.pid))
