@@ -1,3 +1,5 @@
+from functools import reduce
+
 class Person:
     def __init__(self, id, x, y, enter_t):
 
@@ -15,6 +17,7 @@ class Person:
 
         self.avg_age = []
         self.avg_gender = []
+        self.proj_view_time = {"a":0, "b":0, "c":0, "d":0}
 
     def getId(self):
         return self.id
@@ -35,8 +38,26 @@ class Person:
         self.age = age
         self.gender = gender
         self.proj = proj
+
+        if (len(self.avg_age) and len(self.avg_gender)) <= 3:
+            self.avg_age.append(age)
+            self.avg_gender.append(gender)
+        if (len(self.avg_age) and len(self.avg_gender)) > 2:
+            avg_age = reduce(lambda x, y: x + y, self.avg_age) / len(self.avg_age)
+            avg_gender = reduce(lambda x, y: x + y, self.avg_gender) / len(self.avg_gender)
+            self.avg_age = []
+            self.avg_gender = []
+            self.avg_age.append(avg_age)
+            # if avg_gender >= 0.5 :avg_gender = 1
+            # else : avg_gender = 0
+            self.avg_gender.append(avg_gender)
+
+        self.gender = round(reduce(lambda x, y: x + y, self.avg_gender) / len(self.avg_gender))
+        self.age = round(reduce(lambda x, y: x + y, self.avg_age) / len(self.avg_age))
+        # for k in proj.keys() : self.proj_view_time[k] += proj[k] #update proj
+
     def updateLeavetime(self, leave_time):
         self.exit_t = leave_time
     def getAttris(self):
-        # return [self.id, self.proj, self.a1, self.a2, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
-        return [self.id, self.proj, self.age, self.gender]
+        # return [self.id, self.proj_view_time, self.age, self.gender, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
+        # return [self.id, self.proj, self.age, self.gender]
