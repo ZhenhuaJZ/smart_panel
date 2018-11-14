@@ -54,10 +54,14 @@ class Person:
 
         self.gender = round(reduce(lambda x, y: x + y, self.avg_gender) / len(self.avg_gender))
         self.age = round(reduce(lambda x, y: x + y, self.avg_age) / len(self.avg_age))
-        # for k in proj.keys() : self.proj_view_time[k] += proj[k] #update proj
+        for k in proj.keys() : self.proj_view_time[k] += proj[k] #update proj
 
     def updateLeavetime(self, leave_time):
         self.exit_t = leave_time
     def getAttris(self):
-        # return [self.id, self.proj_view_time, self.age, self.gender, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
+        proj_a = int(self.proj_view_time['a'])
+        proj_b = int(self.proj_view_time['b'])
+        proj_c = int(self.proj_view_time['c'])
+        proj_d = int(self.proj_view_time['d'])
+        return [self.id, proj_a, proj_b, proj_c, proj_d, self.age, self.gender, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
         # return [self.id, self.proj, self.age, self.gender]

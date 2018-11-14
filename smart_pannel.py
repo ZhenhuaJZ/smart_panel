@@ -281,7 +281,7 @@ def main():
     try:
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
-        _thread.start_new_thread(store_data,(cam.stable_persons, stored_data,))
+        _thread.start_new_thread(store_data,(cam.valid_persons, stored_data,))
         _thread.start_new_thread(transmit_data,(stored_data,))
     except:
         raise
