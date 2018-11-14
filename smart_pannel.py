@@ -33,11 +33,7 @@ from AreaOfInterest import *
 from Person import *
 from Camera import *
 
-'''Global definition'''
-frames = []
-
 '''Function definition'''
-
 def build_argparser():
     parser = ArgumentParser()
     parser.add_argument("-i", "--input",
@@ -65,7 +61,7 @@ def build_argparser():
     return parser
 
 '''frames capturing and manage threading functions'''
-def capture_frame(cam):
+def capture_frame(cam, frames):
     while cam.video.isOpened():
         frames.insert(0, cam.frameDetections());
 
@@ -101,7 +97,7 @@ def transmit_data(stored_data):
             try:
                 r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
-                # print('unable to connect')
+                print('unable to connect')
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
@@ -112,16 +108,6 @@ def frame_process(frame, n, c, h, w):
     in_frame = in_frame.reshape((n, c, h, w))
     return in_frame
 
-# def get_3d_landmark():
-#     land_mark = np.array([
-#     [-170, 170, -135], # Left eye left corner
-#     [170, 170, -135], # Right eye right corner
-#     [0, 0,  0], # Nose
-#     [-150, -150, -125], # Left Mouth corner
-#     [150, -150, -125],
-#     ]
-#     )
-    # return land_mark
 
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
@@ -167,6 +153,8 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
     # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
     cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
+
+    cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
 
 def main():
@@ -266,9 +254,6 @@ def main():
     detection_end_time = 0
     cam = Camera(input_stream)
     camera_are = cam.w * cam.h
-    ####@ Define array for landmarks
-    # landmark_2d_array = np.zeros((5,2))
-    # landmark_2d_array = []
 
     '''Variable Definition'''
     start_store_time = time.time()
@@ -276,6 +261,7 @@ def main():
     stored_data = pd.DataFrame(columns = ['gmt', 'pid', 'project', 'age', 'gender'])
     transmit_interval = 10 # Define server transmission interval
     sample_interval = 1 # Define data collecting intervals
+    frames = [] # Buffer container for video frame stream
 
     '''Define area of interest'''
     boxes = np.array([
@@ -287,7 +273,7 @@ def main():
     aoi = AreaOfInterest(boxes)
 
     try:
-        _thread.start_new_thread(capture_frame,(cam,))
+        _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
         _thread.start_new_thread(store_data,(cam.stable_persons, stored_data,))
         _thread.start_new_thread(transmit_data,(stored_data,))
@@ -302,12 +288,9 @@ def main():
             continue
         if not ret:
             break
-        cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (0,255,0), 2)
-        cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (0,255,0), 2)
-        cv2.line(frame, (cam.midLine, 0), (cam.midLine, cam.h), (0,255,0), 2)
+
         in_frame = frame_process(frame, n, c, h, w)
         in_face = frame_process(frame, n_fc, c_fc, h_fc, w_fc)
-
         # Main sync point:
         # in the truly Async mode we start the NEXT infer request, while waiting for the CURRENT to complete
         # in the regular mode we start the CURRENT request and immediately wait for it's completion
@@ -321,7 +304,6 @@ def main():
             exec_net_face.start_async(request_id=cur_request_id, inputs={input_blob_fc: in_face})
 
         #if (inf_start-detection_end_time)*1000 >= frame_detection_interval:
-        aoi.draw_bounding_box(frame)
         if exec_net.requests[cur_request_id].wait(-1) == 0 and exec_net_face.requests[cur_request_id].wait(-1) == 0:
             inf_end = time.time()
             det_time = inf_end - inf_start
@@ -345,7 +327,6 @@ def main():
                     ymin_fc = int(obj_fc[4] * cam.h) - size
                     xmax_fc = int(obj_fc[5] * cam.w) + size
                     ymax_fc = int(obj_fc[6] * cam.h) + size
-
                     width_fc = xmax_fc-xmin_fc
                     height_fc = ymax_fc-ymin_fc
                     face_area = width_fc * height_fc
@@ -364,6 +345,10 @@ def main():
                         try:
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
+                            face = cv2.medianBlur(face,7) # Medium blur to reduce noise in image
+                            # face = frame[frame > ymin_fc and frame < ymin_fc and frame > xmin_fc and frame<xmax_fc]
+                            # cv2.imshow('window',face)
+                            # cv2.waitKey(10)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             sex = np.argmax(res_ag['prob'])
@@ -425,7 +410,10 @@ def main():
             aoi.check_box(end_points)
             aoi.update_info(frame)
             cam.people_tracking(personContours)
-
+            aoi.draw_bounding_box(frame)
+            cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (0,255,0), 2)
+            cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (0,255,0), 2)
+            cv2.line(frame, (cam.midLine, 0), (cam.midLine, cam.h), (0,255,0), 2)
             #display the pid icon and draw face bounding box
             for f, p in zip(cam.bounding_box, cam.display_pid):
                 xmin_fc = int(f[0] - f[2]/2)

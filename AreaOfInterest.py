@@ -7,6 +7,7 @@ class AreaOfInterest(object):
         self.BoundingBoxes = box_points
         self.timeLapsed = np.zeros((1,len(box_points)))
         self.counter = np.zeros((1,len(box_points)))
+        self.focusRadi = 10
 
     def check_box(self, points):
         for point in points:
@@ -20,6 +21,7 @@ class AreaOfInterest(object):
 
     def check_project(self,point):
         for i in range(len(self.BoundingBoxes)):
+            # # IDEA: check the area of interest from the end pointer of the user, project with largest area is where the user interested at
             if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
                 return i
 
