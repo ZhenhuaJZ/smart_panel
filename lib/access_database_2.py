@@ -23,12 +23,16 @@ def create_table(conn, create_table_sql):
     :return:
     """
     """init pid = 0, -1 male and femal """
-    value = [['None', 0, 0, 0, 0 ,0, 0, 0, 0, 0, 0], ['None', -1, 0, 0, 0 ,0, 0, 1, 0, 0, 0]]
+    init_value_proj = [['None', 0, -1], ['None', 0, 0], ['None', 0, 1], ['None', 0, 2], ['None', 0, 3],
+                        ['None', -1, -1], ['None', -1, 0], ['None', -1, 1], ['None', -1, 2], ['None', -1, 3]] #gmt, pid, project
+    init_value_gender = [['None', 0, 0, 0], ['None', -1, 0, 1]] #gmt, pid, age, gender
 
     try:
         c = conn.cursor()
-        c.execute(create_table_sql)
-        c.executemany("INSERT INTO smrtpnl VALUES (?,?,?,?,?,?,?,?,?,?,?);", value)
+        c.execute(create_table_sql[0])
+        c.execute(create_table_sql[1])
+        c.executemany("INSERT INTO smrtpnl VALUES (?,?,?);", init_value_proj)
+        c.executemany("INSERT INTO atrbts VALUES (?,?,?,?);", init_value_gender)
         conn.commit()
     except Exception as e:
         raise
@@ -45,20 +49,17 @@ def export_tabel(conn, tabel_name):
 def main():
     database = "../db/database.db"
 
-    sql_create_projects_table = """ CREATE TABLE IF NOT EXISTS smrtpnl (
+    pid_project_table = """ CREATE TABLE IF NOT EXISTS smrtpnl (
                                         gmt_occur text not null,
                                         pid integer NOT NULL,
-                                        proj_a integer NOT NULL,
-                                        proj_b integer NOT NULL,
-                                        proj_c integer NOT NULL,
-                                        proj_d integer NOT NULL,
-                                        age integer NOT NULL,
-                                        gender integer NOT NULL,
-                                        enter_t integer NOT NULL,
-                                        exit_t integer NOT NULL,
-                                        dur integer NOT NULL
+                                        project integer NOT NULL
                                     ); """
-
+    attributes_table = """ CREATE TABLE IF NOT EXISTS atrbts (
+                                        gmt_occur text not null,
+                                        pid integer NOT NULL,
+                                        age integer NOT NULL,
+                                        gender integer NOT NULL
+                                    ); """
     # sql_create_tasks_table = """CREATE TABLE IF NOT EXISTS tasks (
     #                                 id integer PRIMARY KEY,
     #                                 name text NOT NULL,
@@ -69,12 +70,12 @@ def main():
     #                                 end_date text NOT NULL,
     #                                 FOREIGN KEY (project_id) REFERENCES projects (id)
     #                             );"""
-
+    crt_table = [pid_project_table, attributes_table]
     # create a database connection
     conn = create_connection(database)
     if conn is not None:
         # create projects table
-        create_table(conn, sql_create_projects_table)
+        create_table(conn, crt_table)
         print("Created database")
     else:
         print("Error! cannot create the database connection.")
