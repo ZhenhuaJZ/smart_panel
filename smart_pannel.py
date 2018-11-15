@@ -146,10 +146,15 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
     # cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
     # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
-    cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
+    # cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
 
-    cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
+    # cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
+
+def update_endpoints(frame, end_points, centers):
+    for point, center in zip(end_points, centers):
+        cv2.line(frame,(center[0],center[1]),(point[0],point[1]),[0,125,255],4)
+        cv2.circle(frame,(point[0],point[1]), 50, [0,125,255],2)
 
 def main():
     # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
@@ -311,7 +316,7 @@ def main():
 
             personContours = []
             end_points = []
-
+            centers = []
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
@@ -376,6 +381,7 @@ def main():
                                focusing project and its duration for the frame'''
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
+                            centers.append([xCenter_fc,yCenter_fc])
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
                             if proj != None:
@@ -423,6 +429,7 @@ def main():
 
                     detection_end_time = time.time()
 
+            update_endpoints(frame, end_points, centers)
             aoi.check_box(end_points)
             aoi.update_info(frame)
             cam.people_tracking(personContours)
