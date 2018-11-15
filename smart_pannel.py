@@ -332,7 +332,8 @@ def main():
 
                     #get rid off small face
                     # DEBUG: # print(camera_are/face_area)
-                    if camera_are/face_area < 100:
+                    #if camera_are/face_area < 100:
+                    if True:
                         #central of the face
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
                         yCenter_fc = int(ymin_fc + (height_fc)/2)

@@ -6,7 +6,7 @@ from flask import Flask, jsonify, make_response, request, render_template
 import sqlite3 as sql
 
 from bokeh.plotting import figure, show
-from bokeh.models import AjaxDataSource, CustomJS, DatetimeTickFormatter, Range1d, DataRange1d
+from bokeh.models import AjaxDataSource, CustomJS, DatetimeTickFormatter, Range1d, DataRange1d, LabelSet
 from bokeh.embed import components
 from bokeh.resources import INLINE
 from bokeh.util.string import encode_utf8
@@ -18,7 +18,7 @@ import time
 # datetime.now().strftime("%X") #time
 # datetime.now().strftime("%H:%M") #24-H : M
 DATABASE = 'db/database.db'
-ajax_refresh_inter = 2 #second
+ajax_refresh_inter = 120 #second
 
 f2_vbar_interval = 0.55
 
@@ -27,10 +27,10 @@ total_num_of_ppl_viewing = "SELECT COUNT(*) FROM smrtpnl"
 #gender percentage
 gender_ratio = "SELECT gender, COUNT(gender) FROM  smrtpnl GROUP BY gender"
 #how many ppl viewing different project
-proj_a_viewing = "SELECT gender, COUNT(*) FROM smrtpnl WHERE proj_a > 0 GROUP BY gender"
-proj_b_viewing = "SELECT gender, COUNT(*) FROM smrtpnl WHERE proj_b > 0 GROUP BY gender "
-proj_c_viewing = "SELECT gender, COUNT(*) FROM smrtpnl WHERE proj_c > 0 GROUP BY gender"
-proj_d_viewing = "SELECT gender, COUNT(*) FROM smrtpnl WHERE proj_d > 0 GROUP BY gender"
+proj_a_viewing = "SELECT gender, COUNT(*), CAST(ROUND(AVG(proj_a)) AS INT) FROM smrtpnl WHERE proj_a > 0 GROUP BY gender"
+proj_b_viewing = "SELECT gender, COUNT(*), CAST(ROUND(AVG(proj_b)) AS INT) FROM smrtpnl WHERE proj_b > 0 GROUP BY gender"
+proj_c_viewing = "SELECT gender, COUNT(*), CAST(ROUND(AVG(proj_c)) AS INT) FROM smrtpnl WHERE proj_c > 0 GROUP BY gender"
+proj_d_viewing = "SELECT gender, COUNT(*), CAST(ROUND(AVG(proj_d)) AS INT) FROM smrtpnl WHERE proj_d > 0 GROUP BY gender"
 
 def write_database(value):
     #connect to DB
@@ -66,7 +66,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def graph():
-    ajax_input = dict(x_time=[], x1_time=[], y=[], y_female=[], y_male=[], x_female_proj=[], y_female_proj=[], x_male_proj=[], y_male_proj=[])
+    ajax_input = dict(x_time=[], x1_time=[], y=[], y_female=[], y_male=[], x_female_proj=[], y_female_proj=[], x_male_proj=[], y_male_proj=[], y_female_avg_viewing = [], y_male_avg_viewing = [])
 
     source = AjaxDataSource(data = ajax_input, data_url='http://127.0.0.1:5000/data',
                             polling_interval= ajax_refresh_inter * 1000) #adapter=adapter)
@@ -90,6 +90,14 @@ def graph():
     p2.vbar(x='x_male_proj', top='y_male_proj', width=f2_vbar_interval, alpha=0.5, color='blue', legend='male', source=source) #male
     p2.xaxis.ticker = [2, 6, 10, 14]
     p2.xaxis.major_label_overrides = {2: 'P1', 6: 'P2', 10: 'P3', 14: 'P4'}
+
+    # avg_view_male = LabelSet(x='x_male_proj', y='y_male_proj', text='y_male_avg_viewing', level='glyph',
+    #           x_offset=0, y_offset=5, source=source, render_mode='canvas')
+    # avg_view_female = LabelSet(x='x_female_proj', y='y_female_proj', text='y_female_avg_viewing', level='glyph',
+    #           x_offset=0, y_offset=5, source=source, render_mode='canvas')
+    #
+    # p2.add_layout(avg_view_male)
+    # p2.add_layout(avg_view_female)
 
     p2.x_range = DataRange1d(start = 0, end = 16) #padding leave margin on the top
     p2.y_range = DataRange1d(start = 0, range_padding = 5) #padding leave margin on the top
@@ -140,6 +148,8 @@ x_male_proj = []
 y_female_proj = []
 y_male_proj = []
 
+y_male_avg_viewing = []
+y_female_avg_viewing = []
 
 @app.route('/data', methods=['GET', 'OPTIONS', 'POST'])
 @crossdomain
@@ -159,7 +169,9 @@ def data():
         y_female_proj.pop(0)
         x_male_proj.pop(0)
         y_male_proj.pop(0)
-
+        """avg time viewing proj"""
+        y_male_avg_viewing.pop(0)
+        y_female_avg_viewing.pop(0)
 
     sql_init = 2 #pid =0,-1 / male female
     sql_init_gender = 1
@@ -188,14 +200,25 @@ def data():
 
     for i, o in enumerate(o3):
         for o_inner in o:
-            if o_inner[0] == 0 : y_female_proj.append(o_inner[1] -sql_init_gender); x_female_proj.append(i*4 + 1.75) #[#1, #2, #3, #4] how many female view p1-p4
-            if o_inner[0] == 1 : y_male_proj.append(o_inner[1] -sql_init_gender); x_male_proj.append(i*4 + 1.75 + f2_vbar_interval) #how many male view p1-p
+            if o_inner[0] == 0 :
+                y_female_proj.append(o_inner[1] -sql_init_gender); x_female_proj.append(i*4 + 1.75); #[#1, #2, #3, #4] how many female view p1-p4
+                y_female_avg_viewing.append(o_inner[2])
+            if o_inner[0] == 1 :
+                y_male_proj.append(o_inner[1] -sql_init_gender); x_male_proj.append(i*4 + 1.75 + f2_vbar_interval) #how many male view p1-p
+                y_male_avg_viewing.append(o_inner[2]) #avergae viewing time
 
     if len(x_time) < 2: #init
-        return jsonify(x_time=[], y=[], x1_time=[], y_female=[], y_male=[], x_female_proj=[], y_female_proj=[], x_male_proj=[], y_male_proj=[])
+        return jsonify(x_time=[], y=[], x1_time=[],
+                        y_female=[], y_male=[], x_female_proj=[],
+                        y_female_proj=[], x_male_proj=[], y_male_proj=[],
+                        y_female_avg_viewing = [], y_male_avg_viewing = [],)
 
-    # return jsonify(x=x, x1=x1, y=y, y1=y1, y2=y2, y3=y3, y4=y4, y5=y5, y6=y6)
-    return jsonify(x_time=x_time, y=y, x1_time=x1_time, y_female=y_female, y_male=y_male, x_female_proj=x_female_proj, y_female_proj=y_female_proj, x_male_proj=x_male_proj, y_male_proj=y_male_proj)
+
+    return jsonify(x_time=x_time, y=y, x1_time=x1_time,
+                    y_female=y_female, y_male=y_male,
+                    x_female_proj=x_female_proj, y_female_proj=y_female_proj,
+                    x_male_proj=x_male_proj, y_male_proj=y_male_proj,
+                    y_female_avg_viewing = y_female_avg_viewing, y_male_avg_viewing = y_male_avg_viewing)
 
 # show(p)
 app.run(host="0.0.0.0", port=5000, debug=True)
