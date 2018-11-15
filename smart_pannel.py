@@ -83,7 +83,7 @@ def transmit_data(persons, stored_data):
                 stored_data.loc[len(stored_data)] = list
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
-            print("############Transmiiting data##########\n",stored_data)
+            # print("############Transmiiting data##########\n",stored_data)
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
             try:
