@@ -196,7 +196,7 @@ def data():
     y_female.append(o2[0][1]-sql_init+1) #female
     y_male.append(o2[1][1]-sql_init+1) #male
 
-    print(o3)
+    # print(o3)
 
     for i, o in enumerate(o3):
         for o_inner in o:
@@ -209,9 +209,10 @@ def data():
 
     if len(x_time) < 2: #init
         return jsonify(x_time=[], y=[], x1_time=[],
-                        y_female=[], y_male=[], x_female_proj=[],
-                        y_female_proj=[], x_male_proj=[], y_male_proj=[],
-                        y_female_avg_viewing = [], y_male_avg_viewing = [],)
+                        y_female=[], y_male=[],
+                        x_female_proj=[], y_female_proj=[],
+                        x_male_proj=[], y_male_proj=[],
+                        y_female_avg_viewing = [], y_male_avg_viewing = [])
 
 
     return jsonify(x_time=x_time, y=y, x1_time=x1_time,

@@ -27,15 +27,15 @@ class AreaOfInterest(object):
 
     def draw_bounding_box(self,frame):
         for i in self.BoundingBoxes:
-            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[0]),int(i[3])), [125,125,125], 3)
-            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[2]),int(i[1])), [125,125,125], 3)
-            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[0]),int(i[3])), [125,125,125], 3)
-            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[2]),int(i[1])), [125,125,125], 3)
+            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[0]),int(i[3])), [125,125,125], 2)
+            cv2.line(frame,(int(i[0]),int(i[1])),(int(i[2]),int(i[1])), [125,125,125], 2)
+            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[0]),int(i[3])), [125,125,125], 2)
+            cv2.line(frame,(int(i[2]),int(i[3])),(int(i[2]),int(i[1])), [125,125,125], 2)
 
     def update_info(self,frame):
         for i in range(len(self.BoundingBoxes)):
             cv2.putText(frame, 'Time stayed: '+str(self.timeLapsed[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 25),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
+                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
             cv2.putText(frame, 'people viewing: '+str(self.counter[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 50),
-                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 2)
+                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
         self.counter = np.zeros((1,len(self.BoundingBoxes)))
