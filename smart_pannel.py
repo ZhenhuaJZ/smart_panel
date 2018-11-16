@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
  Copyright (c) 2018 Intel Corporation
 
@@ -28,6 +27,7 @@ import math
 import _thread
 from _datetime import datetime
 import requests
+import screeninfo
 '''Import custom class'''
 from AreaOfInterest import *
 from Person import *
@@ -68,7 +68,6 @@ def capture_frame(cam, frames):
 def frames_manage(frames):
     while 1:
         if len(frames) > 5:
-            # print('poping frames', len(frames))
             frames.pop(-1)
 
 '''thread for store and transmit data'''
@@ -89,7 +88,7 @@ def transmit_data(persons, stored_data):
             try:
                 r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
-                print('unable to connect')
+                # print('unable to connect')
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
@@ -100,7 +99,6 @@ def frame_process(frame, n, c, h, w):
     in_frame = in_frame.transpose((2, 0, 1))  # Change data layout from HWC to CHW
     in_frame = in_frame.reshape((n, c, h, w))
     return in_frame
-
 
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
@@ -153,8 +151,21 @@ def eular_to_image(frame,eular_angle,center,scale):
     cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
 
+def draw_info(frame, render_time, cam):
+
+    #draw inActiveZone
+    cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (100, 100, 100), 2)
+    cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (100, 100, 100), 2)
+
+    # Draw performance stats
+    render_time_message = "OpenCV rendering time: {:.3f} ms".format(render_time * 1000)
+    statistics_population ="Total {} people pass the screen".format(cam.entered)
+    cv2.putText(frame, render_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
+    cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
+                (10, 10, 200), 1)
+
 def main():
-    # eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
     model_xml = args.model
@@ -237,21 +248,21 @@ def main():
     else:
         labels_map = None
 
-    cur_request_id = 0
-    next_request_id = 1
-
-    log.info("Starting inference in async mode...")
-    log.info("To switch between sync and async modes press Tab button")
-    log.info("To stop the sample execution press Esc button")
-    is_async_mode = True
-    render_time = 0
-
-    frame_detection_interval = 0 #ms
-    detection_end_time = 0
+    """Cam Info"""
     cam = Camera(input_stream)
     camera_are = cam.w * cam.h
 
+    """Screen Info"""
+    screen = screeninfo.get_monitors()[0]
+    window_name = "SmartPanel"
+
     '''Variable Definition'''
+
+    #request id, render time
+    cur_request_id = 0
+    next_request_id = 1
+    render_time = 0
+
     start_store_time = time.time()
     start_transmit_time = time.time()
     stored_data = pd.DataFrame(columns = ['gmt_occur', 'pid', 'proj_a', 'proj_b', 'proj_c',
@@ -283,6 +294,8 @@ def main():
         try:
             ret, frame = frames[0];
             frame = cv2.flip(frame,1)
+            # frame_show = frame
+            # frame = frame[:,cam.rangeLeft, cam.rangeRight]
         except:
             continue
         if not ret:
@@ -294,15 +307,9 @@ def main():
         # in the truly Async mode we start the NEXT infer request, while waiting for the CURRENT to complete
         # in the regular mode we start the CURRENT request and immediately wait for it's completion
         inf_start = time.time()
+        exec_net.start_async(request_id=next_request_id, inputs={input_blob: in_frame})
+        exec_net_face.start_async(request_id=next_request_id, inputs={input_blob_fc: in_face})
 
-        if is_async_mode:
-            exec_net.start_async(request_id=next_request_id, inputs={input_blob: in_frame})
-            exec_net_face.start_async(request_id=next_request_id, inputs={input_blob_fc: in_face})
-        else:
-            exec_net.start_async(request_id=cur_request_id, inputs={input_blob: in_frame})
-            exec_net_face.start_async(request_id=cur_request_id, inputs={input_blob_fc: in_face})
-
-        #if (inf_start-detection_end_time)*1000 >= frame_detection_interval:
         if exec_net.requests[cur_request_id].wait(-1) == 0 and exec_net_face.requests[cur_request_id].wait(-1) == 0:
             inf_end = time.time()
             det_time = inf_end - inf_start
@@ -339,9 +346,6 @@ def main():
                         yCenter_fc = int(ymin_fc + (height_fc)/2)
                         rect = (xCenter_fc, yCenter_fc, width_fc, height_fc)
 
-                        # Face centre point
-                        cv2.circle(frame, (xCenter_fc, yCenter_fc), 5, (0,255,0), 3)
-
                         try:
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
@@ -349,12 +353,12 @@ def main():
                             # cv2.imshow("face", face)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
-                            sex = np.argmax(res_ag['prob'])
+                            gender = np.argmax(res_ag['prob'])
                             age = int(res_ag['age_conv3']*100)
 
                             personAttributes["rect"] = rect
                             personAttributes["age"] =age
-                            personAttributes["gender"] = sex
+                            personAttributes["gender"] = gender
 
                             '''Head pose recognition and process'''
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
@@ -389,9 +393,6 @@ def main():
                                 personAttributes["project"] = projects
                             personContours.append(personAttributes)
 
-                            cv2.putText(frame, str(sex) +", "+str(age), (xmin_fc + 100, ymin_fc - 7),
-                                        cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
-
                         except Exception as e:
                             pass
 
@@ -413,8 +414,8 @@ def main():
 
                                 class_id = int(obj[1])
                                 color = (min(class_id * 12.5, 255), min(class_id * 7, 255), min(class_id * 5, 255))
-                                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 2)
-                                cv2.circle(frame, (xCenter, yCenter), 5, (0,255,0), 3)
+                                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 1)
+                                cv2.circle(frame, (xCenter, yCenter), 4, (0,255,0), 2)
 
                                 try:
                                     person = frame[ymin:ymax,xmin:xmax]
@@ -424,50 +425,46 @@ def main():
                                 except Exception as e:
                                     pass
 
-                    detection_end_time = time.time()
-
+            cam.people_tracking(personContours)
             aoi.check_box(end_points)
             aoi.update_info(frame)
-            cam.people_tracking(personContours)
             aoi.draw_bounding_box(frame)
-            cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (0,255,0), 2)
-            cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (0,255,0), 2)
-            cv2.line(frame, (cam.midLine, 0), (cam.midLine, cam.h), (0,255,0), 2)
+
             #display the pid icon and draw face bounding box
-            for f, p in zip(cam.bounding_box, cam.display_pid):
+            for f, p, attri in zip(cam.bounding_box, cam.display_pid, personContours):
                 xmin_fc = int(f[0] - f[2]/2)
                 ymin_fc = int(f[1] - f[3]/2)
                 xmax_fc = xmin_fc + f[2]
                 ymax_fc = ymin_fc + f[3]
-                cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 2)
-                cv2.putText(frame, "pid" + str(p), (xmin_fc, ymin_fc), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
 
-        # Draw performance stats
-        inf_time_message = "Inference time: N\A for async mode" if is_async_mode else \
-            "Inference time: {:.3f} ms".format(det_time * 1000)
-        render_time_message = "OpenCV rendering time: {:.3f} ms".format(render_time * 1000)
-        async_mode_message = "Async mode is on. Processing request {}".format(cur_request_id) if is_async_mode else \
-            "Async mode is off. Processing request {}".format(cur_request_id)
-        statistics_population ="Total {} people pass the screen".format(cam.entered)
-        cv2.putText(frame, inf_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (200, 10, 10), 1)
-        cv2.putText(frame, render_time_message, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
-        cv2.putText(frame, statistics_population, (15, 45), cv2.FONT_HERSHEY_COMPLEX, 0.5,
-                    (10, 10, 200), 1)
+                age = attri['age']
+                gender = attri['gender']
+
+                cv2.circle(frame, (f[0], f[1]), 4, (0,255,0), 2)
+                cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (100, 100, 100), 1)
+                cv2.putText(frame, "pid" + str(p), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 10, 200), 1)
+                cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
+
+            draw_info(frame, render_time, cam)
 
         render_start = time.time()
-        cv2.imshow("Detection Results", frame)
+
+        """full screen"""
+        cv2.namedWindow(window_name,cv2.WND_PROP_FULLSCREEN)
+        cv2.moveWindow(window_name, screen.x - 20, screen.y - 20)
+        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
+                          cv2.WINDOW_FULLSCREEN)
+
+        cv2.imshow(window_name,frame)
+
         render_end = time.time()
         render_time = render_end - render_start
 
         key = cv2.waitKey(1)
         if key == 27:
             break
-        if (9 == key):
-            is_async_mode = not is_async_mode
-            log.info("Switched to {} mode".format("async" if is_async_mode else "sync"))
 
-        if is_async_mode:
-            cur_request_id, next_request_id = next_request_id, cur_request_id
+        cur_request_id, next_request_id = next_request_id, cur_request_id
 
     cv2.destroyAllWindows()
     del exec_net

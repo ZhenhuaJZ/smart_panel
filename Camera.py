@@ -93,7 +93,7 @@ class Camera(object):
             for key in self.stable_last_checklist.keys():
                 try:
                     if cur_checklist[key] == self.stable_last_checklist[key]:
-                        print("[POP] pop q2 : ", key)
+                        # print("[POP] pop q2 : ", key)
                         self.stable_persons.pop(cur_indexlist[key])
                         cur_checklist.pop(key)
                         self.entered += 1
@@ -181,7 +181,7 @@ class Camera(object):
                         p.updateCoords(xCenter,yCenter)
                         break
                     else:
-                        print("[POP] person {} removed from q2".format(str(p.getId2())))
+                        # print("[POP] person {} removed from q2".format(str(p.getId2())))
                         self.entered += 1 #count ppl in the area
                         try:
                             self.stable_last_checklist.pop("pid" + str(p.getId2())) #pop last frame dict id --- > 1st then pop list
