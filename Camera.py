@@ -36,7 +36,6 @@ class Camera(object):
         self.stable_check_key = True
         self.stable_last_checklist = {}
         self.display_pid = []
-        self.bounding_box = []
 
         #queue3
         self.valid_persons = []
@@ -87,20 +86,19 @@ class Camera(object):
             cur_indexlist = {}
             for index, p in enumerate(self.stable_persons):
                 fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                cur_checklist["pid" + str(p.getId2())] = fix_dist
-                cur_indexlist["pid" + str(p.getId2())] = index
+                cur_checklist["pid" + str(p.getId())] = fix_dist
+                cur_indexlist["pid" + str(p.getId())] = index
 
             self.stable_check_key = False
 
             for key in self.stable_last_checklist.keys():
                 try:
                     if cur_checklist[key] == self.stable_last_checklist[key]:
-                        # print("[POP] pop q2 : ", key)
                         self.stable_persons.pop(cur_indexlist[key])
                         cur_checklist.pop(key)
                         self.entered += 1
 
-                        print("[MOVE] q2 pid{} -> q3".format(p.getId2()))
+                        print("[MOVE] q2 pid{} -> q3".format(p.getId()))
                         p = self.stable_persons[cur_indexlist[key]]
                         p.updateLeavetime(time.time()-self.sys_clear_time) #update person leave time
                         self.valid_persons.append(p)
@@ -125,7 +123,6 @@ class Camera(object):
         #     print("[WARNING] no detection")
 
         self.display_pid = [] #fresh display list must here !!!!!
-        self.bounding_box = []
 
         for person in rects:
 
@@ -145,7 +142,7 @@ class Camera(object):
                 #if person stay in frame over 5s
                 if time.time()- p.getEnter_t() > self.trustworth_time:
                     print("[MOVE] q1 pid{} -> q2 pid{} ".format(p.getId(), str(self.stable_pid)))
-                    p.updatePid2(self.stable_pid)
+                    p.updatePid(self.stable_pid) #replace the pid with new pid
                     self.stable_persons.append(p)
                     self.persons.pop(index) #pop person from the persons list
                     self.stable_pid += 1
@@ -156,6 +153,7 @@ class Camera(object):
                 if dist <= w and dist <=h:
                     if inActiveZone:
                         new = False
+                        self.display_pid.append([p.getId(), (10, 10, 200)]) #id, display color
                         p.updateCoords(xCenter,yCenter)
                         break
                     else:
@@ -178,19 +176,17 @@ class Camera(object):
                 if dist <= w and dist <=h:
                     if inActiveZone:
                         new = False
-                        self.bounding_box.append([xCenter, yCenter, w, h])
-                        self.display_pid.append(p.getId2())
+                        self.display_pid.append([p.getId(), (10, 200, 10)]) #id, display color
                         p.updateCoords(xCenter,yCenter)
                         break
                     else:
-                        # print("[POP] person {} removed from q2".format(str(p.getId2())))
                         self.entered += 1 #count ppl in the area
                         try:
-                            self.stable_last_checklist.pop("pid" + str(p.getId2())) #pop last frame dict id --- > 1st then pop list
+                            self.stable_last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
 
-                        print("[MOVE] q2 pid{} -> q3".format(p.getId2()))
+                        print("[MOVE] q2 pid{} -> q3".format(p.getId()))
                         self.stable_persons.pop(index)
                         p.updateLeavetime(time.time()) #update person leave time
                         self.valid_persons.append(p)

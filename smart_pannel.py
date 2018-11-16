@@ -149,8 +149,30 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
 
+def draw_detection_info(frame, cam, personContours, end_points):
 
-def draw_info(frame, render_time, cam):
+    for p, attri, end_point in zip(cam.display_pid, personContours, end_points):
+
+        xCenter_fc, yCenter_fc, width_fc, height_fc = attri['rect']
+        age = attri['age']
+        gender = attri['gender']
+
+        xmin_fc = int(xCenter_fc - width_fc/2)
+        ymin_fc = int(yCenter_fc - height_fc/2)
+        xmax_fc = xmin_fc + width_fc
+        ymax_fc = ymin_fc + height_fc
+
+        #head pose track
+        cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),[0,125,255],4)
+        cv2.circle(frame,(end_point[0],end_point[1]), 50, [0,125,255],2)
+        #bounding box and pid
+        cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (0,255,0), 2)
+        cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (100, 100, 100), 1)
+        #age gender text
+        cv2.putText(frame, "pid" + str(p[0]), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, p[1], 1)
+        cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
+
+def draw_UI_info(frame, render_time, cam):
 
     #draw inActiveZone
     cv2.line(frame, (cam.rangeLeft, 0), (cam.rangeLeft, cam.h), (100, 100, 100), 2)
@@ -162,12 +184,6 @@ def draw_info(frame, render_time, cam):
     cv2.putText(frame, render_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
-
-def update_endpoints(frame, end_points, centers):
-    for point, center in zip(end_points, centers):
-        cv2.line(frame,(center[0],center[1]),(point[0],point[1]),[0,125,255],4)
-        cv2.circle(frame,(point[0],point[1]), 50, [0,125,255],2)
-
 
 def main():
 
@@ -387,7 +403,7 @@ def main():
                                focusing project and its duration for the frame'''
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
-                            centers.append([xCenter_fc,yCenter_fc])
+
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
                             if proj != None:
@@ -433,27 +449,14 @@ def main():
                     detection_end_time = time.time()
 
             cam.people_tracking(personContours)
-            update_endpoints(frame, end_points, centers)
             aoi.check_box(end_points)
             aoi.update_info(frame)
             aoi.draw_bounding_box(frame)
 
             #display the pid icon and draw face bounding box
-            for f, p, attri in zip(cam.bounding_box, cam.display_pid, personContours):
-                xmin_fc = int(f[0] - f[2]/2)
-                ymin_fc = int(f[1] - f[3]/2)
-                xmax_fc = xmin_fc + f[2]
-                ymax_fc = ymin_fc + f[3]
+            draw_detection_info(frame, cam, personContours, end_points)
 
-                age = attri['age']
-                gender = attri['gender']
-
-                cv2.circle(frame, (f[0], f[1]), 4, (0,255,0), 2)
-                cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (100, 100, 100), 1)
-                cv2.putText(frame, "pid" + str(p), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 10, 200), 1)
-                cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
-
-            draw_info(frame, render_time, cam)
+            draw_UI_info(frame, render_time, cam)
 
         render_start = time.time()
 
