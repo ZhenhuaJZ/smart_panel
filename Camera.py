@@ -159,7 +159,7 @@ class Camera(object):
                     else:
                         try:
                             self.persons.pop(index)
-                            print("[POP] person {} removed from q1".format(str(p.getId())))
+                            print("[POP]  pid{} removed from q1".format(str(p.getId())))
                             self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
@@ -193,7 +193,7 @@ class Camera(object):
 
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
-                print("[CREAT] new person " + str(self.pid))
+                print("[CREAT] new pid" + str(self.pid))
                 enter_t = time.time()
                 p = Person(self.pid, xCenter, yCenter, enter_t)
                 self.persons.append(p)

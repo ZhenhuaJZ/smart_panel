@@ -163,11 +163,11 @@ def draw_detection_info(frame, cam, personContours, end_points):
         ymax_fc = ymin_fc + height_fc
 
         #head pose track
-        cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),[0,125,255],4)
-        cv2.circle(frame,(end_point[0],end_point[1]), 50, [0,125,255],2)
+        cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),p[1],1)
+        cv2.circle(frame,(end_point[0],end_point[1]), 50, p[1],1)
         #bounding box and pid
-        cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (0,255,0), 2)
-        cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (100, 100, 100), 1)
+        cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, p[1], 1)
+        cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), p[1], 1)
         #age gender text
         cv2.putText(frame, "pid" + str(p[0]), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, p[1], 1)
         cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
@@ -278,7 +278,6 @@ def main():
     window_name = "SmartPanel"
 
     '''Variable Definition'''
-
     #request id, render time
     cur_request_id = 0
     next_request_id = 1
@@ -436,7 +435,7 @@ def main():
                                 class_id = int(obj[1])
                                 color = (min(class_id * 12.5, 255), min(class_id * 7, 255), min(class_id * 5, 255))
                                 cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 1)
-                                cv2.circle(frame, (xCenter, yCenter), 4, (0,255,0), 2)
+                                cv2.circle(frame, (xCenter, yCenter), 4, (0,255,0), 1)
 
                                 try:
                                     person = frame[ymin:ymax,xmin:xmax]
