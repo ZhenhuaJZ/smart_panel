@@ -82,7 +82,6 @@ def transmit_data(persons, stored_data):
                 stored_data.loc[len(stored_data)] = list
             transmit_data = {"key_order": stored_data.columns} # Save dataframe order first
             stored_data.fillna(-1,inplace = True) # Process None data
-            # print("############Transmiiting data##########\n",stored_data)
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
             try:
@@ -92,7 +91,6 @@ def transmit_data(persons, stored_data):
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
-            del persons[:] #reflash list !!!!
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
@@ -146,10 +144,11 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.line(frame,(center[0],center[1]),(x_p[0],x_p[1]),[255,0,0],4)
     # cv2.line(frame,(center[0],center[1]),(y_p[0],y_p[1]),[0,255,0],4)
     # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
-    cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
+    # cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
 
-    cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
+    # cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
+
 
 def draw_info(frame, render_time, cam):
 
@@ -163,6 +162,12 @@ def draw_info(frame, render_time, cam):
     cv2.putText(frame, render_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
+
+def update_endpoints(frame, end_points, centers):
+    for point, center in zip(end_points, centers):
+        cv2.line(frame,(center[0],center[1]),(point[0],point[1]),[0,125,255],4)
+        cv2.circle(frame,(point[0],point[1]), 50, [0,125,255],2)
+
 
 def main():
 
@@ -320,7 +325,7 @@ def main():
 
             personContours = []
             end_points = []
-
+            centers = []
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
@@ -350,7 +355,6 @@ def main():
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
-                            # cv2.imshow("face", face)
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             gender = np.argmax(res_ag['prob'])
@@ -383,6 +387,7 @@ def main():
                                focusing project and its duration for the frame'''
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
+                            centers.append([xCenter_fc,yCenter_fc])
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
                             if proj != None:
@@ -425,7 +430,10 @@ def main():
                                 except Exception as e:
                                     pass
 
+                    detection_end_time = time.time()
+
             cam.people_tracking(personContours)
+            update_endpoints(frame, end_points, centers)
             aoi.check_box(end_points)
             aoi.update_info(frame)
             aoi.draw_bounding_box(frame)

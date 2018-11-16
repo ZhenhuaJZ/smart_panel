@@ -13,6 +13,8 @@ class Camera(object):
 
         self.input = input
         self.video = cv2.VideoCapture(self.input)
+        # self.video.set(3,1280)
+        # self.video.set(4,720)
         self.w = int(self.video.get(3))
         self.h = int(self.video.get(4))
         self.rangeLeft = int(1*self.w/8)
