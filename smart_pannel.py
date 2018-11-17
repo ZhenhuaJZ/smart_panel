@@ -179,9 +179,9 @@ def draw_UI_info(frame, render_time, cam):
     cv2.line(frame, (cam.rangeRight, 0), (cam.rangeRight, cam.h), (100, 100, 100), 2)
 
     # Draw performance stats
-    render_time_message = "OpenCV rendering time: {:.3f} ms".format(render_time * 1000)
+    FPS = "FPS: {}".format(int(1/render_time))
     statistics_population ="Total {} people pass the screen".format(cam.entered)
-    cv2.putText(frame, render_time_message, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
+    cv2.putText(frame, FPS, (15, 15), cv2.FONT_HERSHEY_COMPLEX, 0.5, (10, 10, 200), 1)
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
 
@@ -331,16 +331,13 @@ def main():
         exec_net_face.start_async(request_id=next_request_id, inputs={input_blob_fc: in_face})
 
         if exec_net.requests[cur_request_id].wait(-1) == 0 and exec_net_face.requests[cur_request_id].wait(-1) == 0:
-            inf_end = time.time()
-            det_time = inf_end - inf_start
-
             # Parse detection results of the current request
             res = exec_net.requests[cur_request_id].outputs[out_blob]
             res_fc = exec_net_face.requests[cur_request_id].outputs[out_blob_fc]
 
             personContours = []
             end_points = []
-            centers = []
+
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
                 # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
@@ -445,8 +442,6 @@ def main():
                                 except Exception as e:
                                     pass
 
-                    detection_end_time = time.time()
-
             cam.people_tracking(personContours)
             aoi.check_box(end_points)
             aoi.update_info(frame)
@@ -455,20 +450,17 @@ def main():
             #display the pid icon and draw face bounding box
             draw_detection_info(frame, cam, personContours, end_points)
 
-            draw_UI_info(frame, render_time, cam)
-
-        render_start = time.time()
+        inf_end = time.time()
+        det_time = inf_end - inf_start
+        draw_UI_info(frame, det_time, cam)
 
         """full screen"""
-        cv2.namedWindow(window_name,cv2.WND_PROP_FULLSCREEN)
-        cv2.moveWindow(window_name, screen.x - 20, screen.y - 20)
-        cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
-                          cv2.WINDOW_FULLSCREEN)
+        # cv2.namedWindow(window_name,cv2.WND_PROP_FULLSCREEN)
+        # cv2.moveWindow(window_name, screen.x - 20, screen.y - 20)
+        # cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
+        #                   cv2.WINDOW_FULLSCREEN)
 
         cv2.imshow(window_name,frame)
-
-        render_end = time.time()
-        render_time = render_end - render_start
 
         key = cv2.waitKey(1)
         if key == 27:
