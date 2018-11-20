@@ -25,6 +25,8 @@ class Camera(object):
         self.start_time = time.time()
         self.entered = 0
 
+        self.face_pool = {}
+
         #queue1
         self.persons= []
         self.pid = 1
@@ -49,28 +51,20 @@ class Camera(object):
 
     def fack_preson_check(self):
         #check every ppl location in every "sys_clear_time"
-        '''
-
-        '''
         if int(time.time() - self.start_time) % self.sys_clear_time == 0 and self.check_key == True:
             cur_checklist = {}
-            cur_indexlist = {}
             for index, p in enumerate(self.persons):
-
                 fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                cur_checklist["pid" + str(p.getId())] = fix_dist
-                cur_indexlist["pid" + str(p.getId())] = index
+                cur_checklist["pid" + str(p.getId())] = [fix_dist, index]
 
             self.check_key = False
             for key in self.last_checklist.keys():
                 try:
                     if cur_checklist[key] == self.last_checklist[key]:
-                        print("[POP] pop q1 : ", key)
-                        self.persons.pop(cur_indexlist[key])
+                        print("[POP] pop Q1 : ", key)
+                        self.persons.pop(cur_checklist[key][1])
+                        self.face_pool.pop(key) #clear face pool
                         cur_checklist.pop(key)
-
-                        ## DEBUG:
-                        #print("[INFO] stay in q1 pid = " , [k for k in cur_checklist.keys()])
 
                 except Exception as e:
                     pass
@@ -84,11 +78,9 @@ class Camera(object):
         #check every ppl location in every sys_clear_time
         if int(time.time() - self.start_time) % self.sys_clear_time == 0 and self.stable_check_key == True:
             cur_checklist = {}
-            cur_indexlist = {}
             for index, p in enumerate(self.stable_persons):
                 fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                cur_checklist["pid" + str(p.getId())] = fix_dist
-                cur_indexlist["pid" + str(p.getId())] = index
+                cur_checklist["pid" + str(p.getId())] = [fix_dist, index]
 
             self.stable_check_key = False
 
@@ -96,17 +88,17 @@ class Camera(object):
                 try:
                     if cur_checklist[key] == self.stable_last_checklist[key]:
 
-                        print("[MOVE] Q2 pid{} -> Q3".format(p.getId()))
-                        p = self.stable_persons[cur_indexlist[key]]
+                        print("[P_MOVE] Q2 pid{} -> Q3".format(p.getId()))
+                        p = self.stable_persons[cur_checklist[key][1]]
                         p.updateLeavetime(time.time()-self.sys_clear_time) #update person leave time
-                        self.stable_persons.pop(cur_indexlist[key])
+                        self.stable_persons.pop(cur_checklist[key][1])
                         cur_checklist.pop(key)
                         self.face_pool.pop(key) #clear face pool
                         self.entered += 1
                         self.valid_persons.append(p)
 
                 except Exception as e:
-                    pass
+                    raise
 
             self.stable_last_checklist = cur_checklist
 
@@ -124,12 +116,15 @@ class Camera(object):
         #     self.no_detection_time = time.time()
         #     print("[WARNING] no detection")
 
-        self.display_pid = [] #fresh display list must here !!!!!
         for person in rects:
-            xCenter, yCenter, w, h = person['rect']
+
+            xCenter, yCenter, _, _ = person['rect']
             gender = person['gender']
             age = person['age']
             proj = person['project']
+            pid = person['pid'][0]
+            face = person['face']
+
             new = True
             inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
 
@@ -141,26 +136,24 @@ class Camera(object):
             for index, p in enumerate(self.persons):
                 #if person stay in frame over 5s
                 if time.time()- p.getEnter_t() > self.trustworth_time:
-                    print("[MOVE] q1 pid{} -> q2 pid{} ".format(p.getId(), str(self.stable_pid)))
-                    p.updatePid(self.stable_pid) #replace the pid with new pid
+                    print("[MOVE] Q1 pid{} -> Q2 pid{} ".format(p.getId(), p.getId()))
                     self.stable_persons.append(p)
                     self.persons.pop(index) #pop person from the persons list
-                    self.stable_pid += 1
 
-                dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
                 p.updateAttris(age, gender, proj)
-
-                if dist <= w and dist <=h:
+                _pid = "pid" + str(p.getId())
+                if _pid == pid:
                     if inActiveZone:
                         new = False
-                        self.display_pid.append([p.getId(), (10, 10, 200)]) #id, display color
                         p.updateCoords(xCenter,yCenter)
+                        self.face_pool[pid] = face #update face
                         break
                     else:
                         try:
+                            print("[POP]  pid{} removed from Q1".format(str(p.getId())))
                             self.persons.pop(index)
-                            print("[POP]  pid{} removed from q1".format(str(p.getId())))
-                            self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
+                            self.face_pool.pop(pid) #clear face pool
+                            self.last_checklist.pop(pid) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
 
@@ -168,30 +161,37 @@ class Camera(object):
             queue2
             """
             self.stabel_fack_preson_check()
+
             for index, p in enumerate(self.stable_persons):
-                dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
                 p.updateAttris(age, gender, proj)
-                if dist <= w and dist <=h:
+                _pid = "pid" + str(p.getId())
+                if _pid == pid:
                     if inActiveZone:
                         new = False
-                        self.display_pid.append([p.getId(), (10, 200, 10)]) #id, display color
                         p.updateCoords(xCenter,yCenter)
+                        self.face_pool[pid] = face #update face
                         break
                     else:
                         self.entered += 1 #count ppl in the area
                         try:
-                            self.stable_last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
+                            self.stable_last_checklist.pop(pid) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
-
-                        print("[MOVE] q2 pid{} -> q3".format(p.getId()))
+                        print("[MOVE] Q2 pid{} -> Q3".format(p.getId()))
                         self.stable_persons.pop(index)
+                        self.face_pool.pop(pid) #clear face pool
                         p.updateLeavetime(time.time()) #update person leave time
                         self.valid_persons.append(p)
+
             #make sure the total persons number wont excess the bounding box
-            if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
+            face_pool_check = pid not in [k for k in self.face_pool.keys()] and pid != "Confuse"
+            total_p_inframe = len(self.persons) + len(self.stable_persons) + 1 <= len(rects)
+
+            if new == True and inActiveZone and face_pool_check and total_p_inframe:
                 print("[CREAT] new pid" + str(self.pid))
                 enter_t = time.time()
                 p = Person(self.pid, xCenter, yCenter, enter_t)
                 self.persons.append(p)
+                self.face_pool["pid"+str(self.pid)] = face
+                print("[INFO] face pool -> ", [key for key in self.face_pool.keys()])
                 self.pid += 1
