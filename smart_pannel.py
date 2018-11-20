@@ -100,8 +100,8 @@ def frame_process(frame, n, c, h, w):
 
 def eular_to_image(frame,eular_angle,center,scale):
     ##### Define camera property
-    cam_matrix = np.array([[950, 0, center[0]],
-                   [0, 950, center[1]],
+    cam_matrix = np.array([[973, 0, 648],
+                   [0, 973, 344],
                    [0, 0, 1]], dtype = np.float64)
     ##### Convert from degree to radian
     eular_angle = eular_angle
