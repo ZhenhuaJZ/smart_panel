@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 import math
 import _thread
+from threading import Thread
 from _datetime import datetime
 import requests
 import screeninfo
@@ -286,6 +287,153 @@ def EmbeddingsGallery(ids_list,lm_infer,rid_infer):
 #         return identities[argmin].id
 #     return
 
+def face_thread(frame, project_key, inf_start, args, cam, aoi, head_pose_mean, head_pose_array, personContours, end_points, face_list, obj, obj_fc,
+                exec_net_age, input_blob_ag, exec_net_lm,input_blob_lm, out_blob_lm,
+                exec_net_rid, input_blob_rid, out_blob_rid, exec_net_hp, input_blob_hp,
+                exec_net_attri, input_blob_attri, out_blob_attri, n, c, h, w,
+                n_fc, c_fc, h_fc, w_fc, n_attri, c_attri, h_attri, w_attri,
+                n_ag, c_ag, h_ag, w_ag, n_hp, c_hp, h_hp, w_hp, n_lm, c_lm, h_lm, w_lm,
+                n_rid, c_rid, h_rid, w_rid):
+    personAttributes = {} #muset inside of the face loop otherwise it wont update
+
+    #if no person skip
+    xmin_fc = int(obj_fc[3] * cam.w)
+    ymin_fc = int(obj_fc[4] * cam.h)
+    xmax_fc = int(obj_fc[5] * cam.w)
+    ymax_fc = int(obj_fc[6] * cam.h)
+    width_fc = xmax_fc-xmin_fc
+    height_fc = ymax_fc-ymin_fc
+    face_area = width_fc * height_fc
+
+    #get rid off small face
+    # DEBUG: # print(camera_are/face_area)
+    #if camera_are/face_area < 100:
+    if 1:
+        #central of the face
+        xCenter_fc = int(xmin_fc + (width_fc)/2)
+        yCenter_fc = int(ymin_fc + (height_fc)/2)
+        rect = (xCenter_fc, yCenter_fc, width_fc, height_fc)
+
+        try:
+            #crop face
+            face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
+            """blur face"""
+            face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
+            in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
+            res_ag = exec_net_age.infer({input_blob_ag : in_face})
+            gender = np.argmax(res_ag['prob'])
+            age = int(res_ag['age_conv3']*100)
+
+            #current frame face rid
+            in_face = frame_process(face, n_lm, c_lm, h_lm, w_lm)
+
+            res_lm = exec_net_lm.infer({input_blob_lm : in_face})[out_blob_lm].reshape(-1,2)
+            aligned_face = AlignFaces([face], [res_lm])[0]
+            in_face = frame_process(aligned_face, n_rid, c_rid, h_rid, w_rid)
+            _res_rid = exec_net_rid.infer({input_blob_rid : in_face})[out_blob_rid].reshape(-1)
+            _res_rid = np.copy(_res_rid)
+            personAttributes['face'] = _res_rid
+
+
+            ''' Face id and tracking'''
+            identities = []
+            labels = [key for key in cam.face_pool.keys()]
+
+            for key, label in zip(cam.face_pool.keys(), labels):
+                res_rid = cam.face_pool[key]
+                res_rid = np.copy(res_rid)
+                identities.append([res_rid, label])
+
+            min_dist = 1
+
+            for index, ident in enumerate(identities):
+                ref_res_rid = ident[0]
+                dist = ComputeReidDistance(ref_res_rid, _res_rid)
+                if dist < min_dist:
+                    min_dist = dist
+                    argmin = index
+            if min_dist >= 0.75:
+                personAttributes["pid"] = ["Unknown", min_dist]
+                personAttributes['face'] = _res_rid
+            elif min_dist < 0.75:
+                personAttributes["pid"] = [identities[argmin][1], min_dist]
+                """compare two pid if found same pid keep the less distance one"""
+                check_dul_face = [person["pid"][1] for person in personContours if person["pid"][0] == identities[argmin][1]]
+                if len(check_dul_face) != 0:
+                    if min_dist >= check_dul_face[0]:
+                        personAttributes["pid"] = ["Confuse", min_dist]
+
+
+            personAttributes["rect"] = rect
+            personAttributes["age"] =age
+            personAttributes["gender"] = gender
+
+            '''Head pose recognition and process'''
+            in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
+            res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
+
+            '''Noise reduction for detected eular angle'''
+            # TODO: Improve accuracy
+            head_pose = np.array([[res_hp['angle_y_fc'][0][0],res_hp['angle_p_fc'][0][0],res_hp['angle_r_fc'][0][0]]])
+            head_pose_rmse = np.sqrt(np.mean(head_pose - head_pose_mean)**2)
+            if head_pose_rmse < 2:
+                head_pose_array = np.vstack([head_pose_array,head_pose])
+                head_pose_mean = np.mean(head_pose_array,0).reshape(1,3)
+            else:
+                head_pose_array = head_pose
+                head_pose_mean = head_pose
+
+            '''Remove excessive head pose from array'''
+            if len(head_pose_array) > 15:
+                head_pose_array = np.delete(head_pose_array, 0, 0)
+
+            '''Calculate end point position of the given pose and determine
+               focusing project and its duration for the frame'''
+            end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
+            end_points.append(end_point)
+
+            proj = aoi.check_project(end_point)
+            projects = {"a": 0, "b": 0, "c": 0, "d": 0}
+            if proj != None:
+                stayed_time = round(time.time()-inf_start,2)
+                projects[project_key[proj]] = stayed_time
+                personAttributes["project"] = projects
+            else:
+                personAttributes["project"] = projects
+
+            personContours.append(personAttributes)
+        except Exception as e:
+            raise
+
+        if obj[2] > args.prob_threshold:
+            xmin = int(obj[3] * cam.w)
+            ymin = int(obj[4] * cam.h)
+            xmax = int(obj[5] * cam.w)
+            ymax = int(obj[6] * cam.h)
+
+            width = xmax-xmin
+            height = ymax-ymin
+            person_area = width * height
+            # central of the person
+            xCenter = xmin + int((width)/2)
+            yCenter = ymin + int((height)/2)
+
+            #ratio head and person calibration
+            if person_area/face_area > 5 and abs(xCenter - xCenter_fc) < (width + width_fc)/2:
+
+                class_id = int(obj[1])
+                color = (min(class_id * 12.5, 255), min(class_id * 7, 255), min(class_id * 5, 255))
+                cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 1)
+                cv2.circle(frame, (xCenter, yCenter), 4, (0,255,0), 1)
+
+                try:
+                    person = frame[ymin:ymax,xmin:xmax]
+                    #person attribution
+                    in_attri = frame_process(person, n_attri, c_attri, h_attri, w_attri)
+                    res_attri = exec_net_attri.infer({input_blob_attri : in_attri})[out_blob_attri][0].reshape(-1)
+                except Exception as e:
+                    raise
+
 def main():
 
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
@@ -455,147 +603,22 @@ def main():
 
             personContours = []
             end_points = []
+            face_list = []
+            threads = []
             for obj, obj_fc in zip(res[0][0], res_fc[0][0]):
-                # Draw only objects when probability more than specified threshold
                 if obj_fc[2] > args.prob_threshold_face:
-
-                    personAttributes = {} #muset inside of the face loop otherwise it wont update
-
-                    #if no person skip
-                    xmin_fc = int(obj_fc[3] * cam.w)
-                    ymin_fc = int(obj_fc[4] * cam.h)
-                    xmax_fc = int(obj_fc[5] * cam.w)
-                    ymax_fc = int(obj_fc[6] * cam.h)
-                    width_fc = xmax_fc-xmin_fc
-                    height_fc = ymax_fc-ymin_fc
-                    face_area = width_fc * height_fc
-
-                    #get rid off small face
-                    # DEBUG: # print(camera_are/face_area)
-                    #if camera_are/face_area < 100:
-                    if 1:
-                        #central of the face
-                        xCenter_fc = int(xmin_fc + (width_fc)/2)
-                        yCenter_fc = int(ymin_fc + (height_fc)/2)
-                        rect = (xCenter_fc, yCenter_fc, width_fc, height_fc)
-
-                        try:
-                            #crop face
-                            face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
-                            """blur face"""
-                            face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
-                            in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
-                            res_ag = exec_net_age.infer({input_blob_ag : in_face})
-                            gender = np.argmax(res_ag['prob'])
-                            age = int(res_ag['age_conv3']*100)
-
-                            #current frame face rid
-                            in_face = frame_process(face, n_lm, c_lm, h_lm, w_lm)
-                            res_lm = exec_net_lm.infer({input_blob_lm : in_face})[out_blob_lm].reshape(-1,2)
-                            aligned_face = AlignFaces([face], [res_lm])[0]
-
-                            in_face = frame_process(aligned_face, n_rid, c_rid, h_rid, w_rid)
-                            _res_rid = exec_net_rid.infer({input_blob_rid : in_face})[out_blob_rid].reshape(-1)
-                            _res_rid = np.copy(_res_rid)
-                            personAttributes['face'] = _res_rid
-
-                            identities = []
-                            labels = [key for key in cam.face_pool.keys()]
-
-                            for key, label in zip(cam.face_pool.keys(), labels):
-                                res_rid = cam.face_pool[key]
-                                res_rid = np.copy(res_rid)
-                                identities.append([res_rid, label])
-
-                            min_dist = 1
-
-                            for index, ident in enumerate(identities):
-                                ref_res_rid = ident[0]
-                                dist = ComputeReidDistance(ref_res_rid, _res_rid)
-                                if dist < min_dist:
-                                    min_dist = dist
-                                    argmin = index
-                            if min_dist >= 0.75:
-                                personAttributes["pid"] = ["Unknown", min_dist]
-                                personAttributes['face'] = _res_rid
-                            elif min_dist < 0.75:
-                                personAttributes["pid"] = [identities[argmin][1], min_dist]
-                                """compare two pid if found same pid keep the less distance one"""
-                                check_dul_face = [person["pid"][1] for person in personContours if person["pid"][0] == identities[argmin][1]]
-                                if len(check_dul_face) != 0:
-                                    if min_dist >= check_dul_face[0]:
-                                        personAttributes["pid"] = ["Confuse", min_dist]
-
-
-                            personAttributes["rect"] = rect
-                            personAttributes["age"] =age
-                            personAttributes["gender"] = gender
-
-                            '''Head pose recognition and process'''
-                            in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
-                            res_hp = exec_net_hp.infer({input_blob_hp : in_face_hp})
-
-                            '''Noise reduction for detected eular angle'''
-                            # TODO: Improve accuracy
-                            head_pose = np.array([[res_hp['angle_y_fc'][0][0],res_hp['angle_p_fc'][0][0],res_hp['angle_r_fc'][0][0]]])
-                            head_pose_rmse = np.sqrt(np.mean(head_pose - head_pose_mean)**2)
-                            if head_pose_rmse < 2:
-                                head_pose_array = np.vstack([head_pose_array,head_pose])
-                                head_pose_mean = np.mean(head_pose_array,0).reshape(1,3)
-                            else:
-                                head_pose_array = head_pose
-                                head_pose_mean = head_pose
-
-                            '''Remove excessive head pose from array'''
-                            if len(head_pose_array) > 15:
-                                head_pose_array = np.delete(head_pose_array, 0, 0)
-
-                            '''Calculate end point position of the given pose and determine
-                               focusing project and its duration for the frame'''
-                            end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
-                            end_points.append(end_point)
-
-                            proj = aoi.check_project(end_point)
-                            projects = {"a": 0, "b": 0, "c": 0, "d": 0}
-                            if proj != None:
-                                stayed_time = round(time.time()-inf_start,2)
-                                projects[project_key[proj]] = stayed_time
-                                personAttributes["project"] = projects
-                            else:
-                                personAttributes["project"] = projects
-
-                            personContours.append(personAttributes)
-                        except Exception as e:
-                            pass
-
-                        # if obj[2] > args.prob_threshold:
-                        #     xmin = int(obj[3] * cam.w)
-                        #     ymin = int(obj[4] * cam.h)
-                        #     xmax = int(obj[5] * cam.w)
-                        #     ymax = int(obj[6] * cam.h)
-                        #
-                        #     width = xmax-xmin
-                        #     height = ymax-ymin
-                        #     person_area = width * height
-                        #     # central of the person
-                        #     xCenter = xmin + int((width)/2)
-                        #     yCenter = ymin + int((height)/2)
-                        #
-                        #     #ratio head and person calibration
-                        #     if person_area/face_area > 5 and abs(xCenter - xCenter_fc) < (width + width_fc)/2:
-                        #
-                        #         class_id = int(obj[1])
-                        #         color = (min(class_id * 12.5, 255), min(class_id * 7, 255), min(class_id * 5, 255))
-                        #         cv2.rectangle(frame, (xmin, ymin), (xmax, ymax), color, 1)
-                        #         cv2.circle(frame, (xCenter, yCenter), 4, (0,255,0), 1)
-                        #
-                        #         try:
-                        #             person = frame[ymin:ymax,xmin:xmax]
-                        #             #person attribution
-                        #             in_attri = frame_process(person, n_attri, c_attri, h_attri, w_attri)
-                        #             res_attri = exec_net_attri.infer({input_blob_attri : in_attri})[out_blob_attri][0].reshape(-1)
-                        #         except Exception as e:
-                        #             pass
+                    t = Thread(target = face_thread, args = (frame,project_key,inf_start, args, cam, aoi, head_pose_mean, head_pose_array, personContours, end_points, face_list, obj, obj_fc,
+                                    exec_net_age, input_blob_ag, exec_net_lm,input_blob_lm, out_blob_lm,
+                                    exec_net_rid, input_blob_rid, out_blob_rid, exec_net_hp, input_blob_hp,
+                                    exec_net_attri, input_blob_attri, out_blob_attri, n, c, h, w,
+                                    n_fc, c_fc, h_fc, w_fc, n_attri, c_attri, h_attri, w_attri,
+                                    n_ag, c_ag, h_ag, w_ag, n_hp, c_hp, h_hp, w_hp, n_lm, c_lm, h_lm, w_lm,
+                                    n_rid, c_rid, h_rid, w_rid,))
+                    t.start()
+                    threads.append(t)
+                # Draw only objects when probability more than specified threshold
+            for t in threads:
+                t.join()
             cam.people_tracking(personContours)
             #display the pid icon and draw face bounding box
             draw_detection_info(frame, cam, personContours, end_points)
@@ -603,6 +626,7 @@ def main():
             aoi.update_info(frame)
             aoi.draw_bounding_box(frame)
 
+            '''Testing threading of inference_engine'''
 
         inf_end = time.time()
         det_time = inf_end - inf_start
