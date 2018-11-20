@@ -151,8 +151,17 @@ def eular_to_image(frame,eular_angle,center,scale):
 
 def draw_detection_info(frame, cam, personContours, end_points):
 
-    for p, attri, end_point in zip(cam.display_pid, personContours, end_points):
+    #fixed bounding box out of inActiveZone and still draw on the graph
+    index_not_in_active = [index for index, attri in enumerate(personContours) if attri['rect'][0] not in range(cam.rangeLeft, cam.rangeRight)]
+    for i in index_not_in_active:
+        try:
+            personContours.pop(i)
+            end_points.pop(i)
+        except Exception as e:
+            pass
 
+
+    for p, attri, end_point in zip(cam.display_pid, personContours, end_points):
         xCenter_fc, yCenter_fc, width_fc, height_fc = attri['rect']
         age = attri['age']
         gender = attri['gender']
@@ -314,8 +323,6 @@ def main():
         try:
             ret, frame = frames[0];
             frame = cv2.flip(frame,1)
-            # frame_show = frame
-            # frame = frame[:,cam.rangeLeft, cam.rangeRight]
         except:
             continue
         if not ret:
@@ -367,6 +374,7 @@ def main():
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
+                            # cv2.imwrite('./face/leo.png',frame[ymin_fc + 5 :ymax_fc + 5 ,xmin_fc + 5 :xmax_fc + 5 ])
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             gender = np.argmax(res_ag['prob'])

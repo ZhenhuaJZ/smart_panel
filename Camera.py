@@ -1,6 +1,7 @@
 import time
 import cv2
 import math
+import numpy as np
 from Person import *
 
 class Camera(object):
@@ -94,13 +95,14 @@ class Camera(object):
             for key in self.stable_last_checklist.keys():
                 try:
                     if cur_checklist[key] == self.stable_last_checklist[key]:
-                        self.stable_persons.pop(cur_indexlist[key])
-                        cur_checklist.pop(key)
-                        self.entered += 1
 
-                        print("[MOVE] q2 pid{} -> q3".format(p.getId()))
+                        print("[MOVE] Q2 pid{} -> Q3".format(p.getId()))
                         p = self.stable_persons[cur_indexlist[key]]
                         p.updateLeavetime(time.time()-self.sys_clear_time) #update person leave time
+                        self.stable_persons.pop(cur_indexlist[key])
+                        cur_checklist.pop(key)
+                        self.face_pool.pop(key) #clear face pool
+                        self.entered += 1
                         self.valid_persons.append(p)
 
                 except Exception as e:
@@ -123,9 +125,7 @@ class Camera(object):
         #     print("[WARNING] no detection")
 
         self.display_pid = [] #fresh display list must here !!!!!
-
         for person in rects:
-
             xCenter, yCenter, w, h = person['rect']
             gender = person['gender']
             age = person['age']
@@ -168,11 +168,9 @@ class Camera(object):
             queue2
             """
             self.stabel_fack_preson_check()
-
             for index, p in enumerate(self.stable_persons):
                 dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
                 p.updateAttris(age, gender, proj)
-
                 if dist <= w and dist <=h:
                     if inActiveZone:
                         new = False
@@ -190,7 +188,6 @@ class Camera(object):
                         self.stable_persons.pop(index)
                         p.updateLeavetime(time.time()) #update person leave time
                         self.valid_persons.append(p)
-
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
                 print("[CREAT] new pid" + str(self.pid))
