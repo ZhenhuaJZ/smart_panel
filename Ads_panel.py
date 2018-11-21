@@ -10,6 +10,7 @@ class Advertisment (object):
         self.screen = screeninfo.get_monitors()[0]
         self.time_interval = 10
         self.cur_id = "-1"
+        self.key_name = []
     def set_window_name(self, new_name):
         self.window_name = new_name
     def update_ads_path(self, new_path):
@@ -20,6 +21,12 @@ class Advertisment (object):
         self.cur_id = file
     def get_proj_id(self):
         return self.cur_id
+    def get_proj_id(self):
+        return self.cur_id
+    def get_key_name(self):
+        key_names = os.listdir(self.path)
+        self.key_name = [os.path.splitext(key)[0] for key in key_names]
+        return self.key_name
     def display_ads(self):
         cv2.namedWindow(self.window_name,cv2.WND_PROP_FULLSCREEN)
         cv2.moveWindow(self.window_name, self.screen.x, self.screen.y)
