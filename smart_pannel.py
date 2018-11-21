@@ -32,6 +32,7 @@ import screeninfo
 from AreaOfInterest import *
 from Person import *
 from Camera import *
+from Ads_panel import *
 
 '''Function definition'''
 def build_argparser():
@@ -282,9 +283,23 @@ def main():
     cam = Camera(input_stream)
     camera_are = cam.w * cam.h
 
+    """Ads Info"""
+    ads_path = './ads/'
+    ads = Advertisment(ads_path)
+
     """Screen Info"""
     screen = screeninfo.get_monitors()[0]
     window_name = "SmartPanel"
+    """full screen"""
+    # cv2.namedWindow(window_name,cv2.WND_PROP_FULLSCREEN)
+    # cv2.moveWindow(window_name, screen.x - 20, screen.y - 20)
+    # cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
+    #                   cv2.WINDOW_FULLSCREEN)
+    """small screen"""
+    cv2.namedWindow(window_name,cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_name, 400,400)
+    cv2.moveWindow(window_name, 1900,1000)
+
 
     '''Variable Definition'''
     #request id, render time
@@ -316,6 +331,7 @@ def main():
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
         _thread.start_new_thread(transmit_data,(cam.valid_persons,stored_data,))
+        _thread.start_new_thread(ads.display_ads,())
     except:
         raise
 
@@ -408,6 +424,7 @@ def main():
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
 
+                            # p_id = ads.get_proj_id()
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
                             if proj != None:
@@ -452,8 +469,8 @@ def main():
 
             cam.people_tracking(personContours)
             aoi.check_box(end_points)
-            aoi.update_info(frame)
-            aoi.draw_bounding_box(frame)
+            # aoi.update_info(frame)
+            # aoi.draw_bounding_box(frame)
 
             #display the pid icon and draw face bounding box
             draw_detection_info(frame, cam, personContours, end_points)
@@ -462,14 +479,7 @@ def main():
         det_time = inf_end - inf_start
         draw_UI_info(frame, det_time, cam)
 
-        """full screen"""
-        # cv2.namedWindow(window_name,cv2.WND_PROP_FULLSCREEN)
-        # cv2.moveWindow(window_name, screen.x - 20, screen.y - 20)
-        # cv2.setWindowProperty(window_name, cv2.WND_PROP_FULLSCREEN,
-        #                   cv2.WINDOW_FULLSCREEN)
-
         cv2.imshow(window_name,frame)
-
         key = cv2.waitKey(1)
         if key == 27:
             break

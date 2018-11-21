@@ -20,7 +20,8 @@ class AreaOfInterest(object):
                     self.counter[0,i] = self.counter[0,i] + 1
 
     def check_project(self,point):
-        for i in range(len(self.BoundingBoxes)):
+        length = len(self.BoundingBoxes)
+        for i in range(length):
             # # IDEA: check the area of interest from the end pointer of the user, project with largest area is where the user interested at
             if (point[0] > self.BoundingBoxes[i,0]) and (point[1] < self.BoundingBoxes[i,1]) and (point[0] < self.BoundingBoxes[i,2]) and (point[1] > self.BoundingBoxes[i,3]):
                 return i
@@ -33,7 +34,8 @@ class AreaOfInterest(object):
             cv2.line(frame,(int(i[2]),int(i[3])),(int(i[2]),int(i[1])), [125,125,125], 2)
 
     def update_info(self,frame):
-        for i in range(len(self.BoundingBoxes)):
+        length = len(self.BoundingBoxes)
+        for i in range(length):
             cv2.putText(frame, 'Time stayed: '+str(self.timeLapsed[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 25),
                         cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
             cv2.putText(frame, 'people viewing: '+str(self.counter[0,i]), (int(self.BoundingBoxes[i,2]) - 200, int(self.BoundingBoxes[i,3]) + 50),
