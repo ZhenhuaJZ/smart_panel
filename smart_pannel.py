@@ -424,6 +424,8 @@ def main():
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
 
+                            keys = ads.get_key_name()
+                            print(keys)
                             # p_id = ads.get_proj_id()
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
