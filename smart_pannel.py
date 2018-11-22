@@ -28,6 +28,7 @@ import _thread
 from _datetime import datetime
 import requests
 import screeninfo
+from multiprocessing import Process
 '''Import custom class'''
 from AreaOfInterest import *
 from Person import *
@@ -68,7 +69,8 @@ def capture_frame(cam, frames):
 
 def frames_manage(frames):
     while 1:
-        if len(frames) > 5:
+        length = len(frames)
+        if length > 5:
             frames.pop(-1)
 
 '''thread for store and transmit data'''
@@ -257,7 +259,7 @@ def main():
     exec_net = plugin.load(network=net, num_requests=2)
     exec_net_face = plugin.load(network=net_fc, num_requests=2)
     exec_net_attri = plugin.load(network=net_attri, num_requests=2)
-    exec_net_age = plugin.load(network=net_ag, num_requests=2)
+    exec_net_age = plugin_hp.load(network=net_ag, num_requests=2)
     exec_net_hp = plugin_hp.load(network=net_hp, num_requests=2)
 
     # Read and pre-process input image
@@ -331,14 +333,18 @@ def main():
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
         _thread.start_new_thread(transmit_data,(cam.valid_persons,stored_data,))
-        _thread.start_new_thread(ads.display_ads,())
+        # _thread.start_new_thread(capture_frame,(ads,video_frames,))
+        # _thread.start_new_thread(frames_manage,(video_frames,))
+        # _thread.start_new_thread(ads.display_ads_video,())
+        p = Process(target = ads.display_ads_video, args = ())
+        p.start()
     except:
         raise
 
     while 1:
         try:
             ret, frame = frames[0];
-            frame = cv2.flip(frame,1)
+            # frame = cv2.flip(frame,1)
         except:
             continue
         if not ret:
@@ -424,8 +430,7 @@ def main():
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
 
-                            keys = ads.get_key_name()
-                            print(keys)
+                            # keys = ads.get_key_name()
                             # p_id = ads.get_proj_id()
                             proj = aoi.check_project(end_point)
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
@@ -482,15 +487,14 @@ def main():
         draw_UI_info(frame, det_time, cam)
 
         cv2.imshow(window_name,frame)
-        key = cv2.waitKey(1)
-        if key == 27:
-            break
+        # key = cv2.waitKey(1)
+        # if key == 27:
+        #     break
 
         cur_request_id, next_request_id = next_request_id, cur_request_id
-
+    p.join()
     cv2.destroyAllWindows()
     del exec_net
     del plugin
-
 if __name__ == '__main__':
     sys.exit(main() or 0)
