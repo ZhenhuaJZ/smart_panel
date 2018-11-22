@@ -69,19 +69,31 @@ class Advertisment (object):
     '''frames capturing and manage threading functions'''
     def capture_frame(self):
         #Must define in here
-        self.video = cv2.VideoCapture(os.path.join(self.path, "adv1.mp4"))
         while 1:
-            _, frame = self.video.read()
-            self.frames.insert(0, frame)
+            files = os.listdir(self.path)
+            for file in files:
+                print(file)
+                print(file.endswith(".mp4"))
+                if file.endswith(".mp4"):
+                    self.video = cv2.VideoCapture(os.path.join(self.path, file))
+                    video_frames_len = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
+                    frame_counter = 0
+                    while frame_counter < video_frames_len:
+                        _, frame = self.video.read()
+                        self.frames.insert(0, frame)
+                        frame_counter += 1
+                        # if frame_counter == video_frames_len:
+                        #     frame_counter = 0 #Or whatever as long as it is the same as next line
+                        #     self.video.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     def frames_manage(self):
         while 1:
             length = len(self.frames)
             if length > 10:
                 self.frames.pop(-1)
-                
+
     def play_audio(self):
-        music = pyglet.resource.media("adv1.mp3")
+        music = pyglet.resource.media("adv2.mp3")
         music.play()
         pyglet.app.run()
 
@@ -110,7 +122,7 @@ class Advertisment (object):
             if delay_time <= 0:
                 delay_time = 1
 
-            key = cv2.waitKey(29)
+            key = cv2.waitKey(delay_time)
             if key == 27:
                 break
 

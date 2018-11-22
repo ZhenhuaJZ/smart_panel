@@ -443,7 +443,7 @@ def main(ads):
                             personContours.append(personAttributes)
 
                         except Exception as e:
-                            raise
+                            pass
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
@@ -508,7 +508,7 @@ if __name__ == '__main__':
 
     pool = Pool(processes=4)
     pool.apply_async(main, args = (ads,))
-    pool.apply_async(ads.play_audio, args = ())
+    # pool.apply_async(ads.play_audio, args = ())
     pool.apply_async(ads.display_ads_video, args = ())
     pool.close()
     pool.join()
