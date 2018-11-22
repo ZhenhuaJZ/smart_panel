@@ -333,11 +333,7 @@ def main():
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
         _thread.start_new_thread(transmit_data,(cam.valid_persons,stored_data,))
-        # _thread.start_new_thread(capture_frame,(ads,video_frames,))
-        # _thread.start_new_thread(frames_manage,(video_frames,))
-        # _thread.start_new_thread(ads.display_ads_video,())
-        p = Process(target = ads.display_ads_video, args = ())
-        p.start()
+
     except:
         raise
 
@@ -487,14 +483,20 @@ def main():
         draw_UI_info(frame, det_time, cam)
 
         cv2.imshow(window_name,frame)
-        # key = cv2.waitKey(1)
-        # if key == 27:
-        #     break
-
+        key = cv2.waitKey(1)
+        if key == 27:
+            break
         cur_request_id, next_request_id = next_request_id, cur_request_id
-    p.join()
+
     cv2.destroyAllWindows()
     del exec_net
     del plugin
+
 if __name__ == '__main__':
+    """Ads Info"""
+    ads_path = './ads/'
+    ads = Advertisment(ads_path)
+    p = Process(target = ads.display_ads_video, args = ())
+    p.start()
     sys.exit(main() or 0)
+    p.join()

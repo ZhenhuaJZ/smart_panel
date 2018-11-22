@@ -4,13 +4,15 @@ import os
 import time
 # from moviepy.editor import *
 # import pygame
+from subprocess import call
 from threading import Thread
 import _thread
+from multiprocessing import Process, Queue
 
 class Advertisment (object):
     def __init__(self, path):
         self.path = path
-        self.video = cv2.VideoCapture(os.path.join(self.path, "adv1.mp4"))
+        self.video = "Video path"
         self.window_name = 'Ads'
         self.screen = screeninfo.get_monitors()[0]
         self.time_interval = 10
@@ -65,18 +67,15 @@ class Advertisment (object):
 
     '''frames capturing and manage threading functions'''
     def capture_frame(self):
+        #Must define in here
+        self.video = cv2.VideoCapture(os.path.join(self.path, "adv1.mp4"))
         while 1:
-            try:
-                print("cap1")
-                self.frames.insert(0, self.frameDetections())
-                print("cap2")
-            except Exception as e:
-                print(e)
-
+            _, frame = self.video.read()
+            self.frames.insert(0, frame)
     def frames_manage(self):
         while 1:
             length = len(self.frames)
-            if length > 5:
+            if length > 10:
                 self.frames.pop(-1)
 
     def display_ads_video(self):
@@ -86,31 +85,26 @@ class Advertisment (object):
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
                           cv2.WINDOW_FULLSCREEN)
 
-        # _thread.start_new_thread(self.capture_frame,())
-        # _thread.start_new_thread(self.frames_manage,())
-        t1 = Thread(target = self.capture_frame, args = ())
-        t2 = Thread(target = self.frames_manage, args = ())
-        t2.start()
-        t1.start()
+        _thread.start_new_thread(self.capture_frame,())
+        _thread.start_new_thread(self.frames_manage,())
 
         while 1:
+
             try:
-                ret, frame = self.frames[0]
-                # print("ad_vid")
-                # print(len(self.frames))
+                frame = self.frames[0]
             except Exception as e:
-                # print(e)
                 continue
+            # frame = self.frameDetections()
+            # _, frame = self.video.read()
             cv2.imshow(self.window_name,frame)
-            key = cv2.waitKey(1)
+            key = cv2.waitKey(10)
             if key == 27:
                 break
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
-        t1.join()
-        t2.join()
 
         # pygame.display.set_caption('Hello World!')
         # clip = VideoFileClip(os.path.join(self.path, 'adv1.mp4'))
         # clip.preview()
         # pygame.quit()
+
+    def call_cmd(self):
+        call(["xdg-open", str(os.path.join(self.path, "adv1.mp4"))])
