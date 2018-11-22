@@ -322,10 +322,7 @@ def main():
     '''Define projects and project area of interest'''
     project_key = ["a","b","c","d"]
     boxes = np.array([
-    [0, cam.h/2, cam.w/2, 0],
-    [cam.w/2, cam.h/2, cam.w, 0],
-    [0,cam.h, cam.w/2, cam.h/2],
-    [cam.w/2, cam.h, cam.w, cam.h/2]
+    [0, 0, cam.w, cam.h]
     ])
     aoi = AreaOfInterest(boxes)
 
@@ -428,7 +425,7 @@ def main():
 
                             # keys = ads.get_key_name()
                             # p_id = ads.get_proj_id()
-                            proj = aoi.check_project(end_point)
+                            proj = ads.get_proj_id()
                             projects = {"a": 0, "b": 0, "c": 0, "d": 0}
                             if proj != None:
                                 stayed_time = round(time.time()-inf_start,2)
