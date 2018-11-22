@@ -79,6 +79,11 @@ class Advertisment (object):
             length = len(self.frames)
             if length > 10:
                 self.frames.pop(-1)
+                
+    def play_audio(self):
+        music = pyglet.resource.media("adv1.mp3")
+        music.play()
+        pyglet.app.run()
 
     def display_ads_video(self):
 
@@ -87,14 +92,8 @@ class Advertisment (object):
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
                           cv2.WINDOW_FULLSCREEN)
 
-        def play_audio():
-            music = pyglet.resource.media("adv1.mp3")
-            music.play()
-            pyglet.app.run()
-
         _thread.start_new_thread(self.capture_frame,())
         _thread.start_new_thread(self.frames_manage,())
-        _thread.start_new_thread(play_audio,())
 
         fps = 10
 
@@ -111,7 +110,7 @@ class Advertisment (object):
             if delay_time <= 0:
                 delay_time = 1
 
-            key = cv2.waitKey(delay_time)
+            key = cv2.waitKey(29)
             if key == 27:
                 break
 
