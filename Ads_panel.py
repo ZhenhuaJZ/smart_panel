@@ -87,9 +87,9 @@ class Advertisment (object):
 
         _thread.start_new_thread(self.capture_frame,())
         _thread.start_new_thread(self.frames_manage,())
-
+        fps = 10
         while 1:
-
+            frame_start_time = time.time()
             try:
                 frame = self.frames[0]
             except Exception as e:
@@ -97,7 +97,13 @@ class Advertisment (object):
             # frame = self.frameDetections()
             # _, frame = self.video.read()
             cv2.imshow(self.window_name,frame)
-            key = cv2.waitKey(10)
+            frame_time = time.time() - frame_start_time
+            delay_time = int((1/fps-frame_time)*1000)
+            # print(delay_time)
+            if delay_time <= 0:
+                delay_time = 1
+
+            key = cv2.waitKey(delay_time)
             if key == 27:
                 break
 
