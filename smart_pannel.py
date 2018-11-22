@@ -97,6 +97,9 @@ def transmit_data(persons, stored_data):
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
 
+            #clear valid person after transmit
+            cam.valid_persons.clear()
+
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
     in_frame = in_frame.transpose((2, 0, 1))  # Change data layout from HWC to CHW
@@ -508,7 +511,7 @@ if __name__ == '__main__':
 
     pool = Pool(processes=4)
     pool.apply_async(main, args = (ads,))
-    # pool.apply_async(ads.play_audio, args = ())
+    pool.apply_async(ads.play_audio, args = ())
     pool.apply_async(ads.display_ads_video, args = ())
     pool.close()
     pool.join()

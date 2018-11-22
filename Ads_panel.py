@@ -72,8 +72,6 @@ class Advertisment (object):
         while 1:
             files = os.listdir(self.path)
             for file in files:
-                print(file)
-                print(file.endswith(".mp4"))
                 if file.endswith(".mp4"):
                     self.video = cv2.VideoCapture(os.path.join(self.path, file))
                     video_frames_len = self.video.get(cv2.CAP_PROP_FRAME_COUNT)
@@ -82,9 +80,6 @@ class Advertisment (object):
                         _, frame = self.video.read()
                         self.frames.insert(0, frame)
                         frame_counter += 1
-                        # if frame_counter == video_frames_len:
-                        #     frame_counter = 0 #Or whatever as long as it is the same as next line
-                        #     self.video.set(cv2.CAP_PROP_POS_FRAMES, 0)
 
     def frames_manage(self):
         while 1:
