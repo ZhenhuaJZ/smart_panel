@@ -197,7 +197,7 @@ def draw_UI_info(frame, render_time, cam):
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
 
-def main():
+def main(ads):
 
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
@@ -286,8 +286,8 @@ def main():
     camera_are = cam.w * cam.h
 
     """Ads Info"""
-    ads_path = './ads/'
-    ads = Advertisment(ads_path)
+    # ads_path = './ads/'
+    # ads = Advertisment(ads_path)
 
     """Screen Info"""
     screen = screeninfo.get_monitors()[0]
@@ -311,8 +311,11 @@ def main():
 
     start_store_time = time.time()
     start_transmit_time = time.time()
-    stored_data = pd.DataFrame(columns = ['gmt_occur', 'pid', 'proj_a', 'proj_b', 'proj_c',
-                                            'proj_d', 'age', 'gender','enter_t','exit_t','dur'])
+    ads_keys = ads.get_key_name()
+    keys = ['gmt_occur', 'pid', 'gender', 'enter_t', 'exit_t', 'dur']
+    keys.extend(ads_keys)
+    stored_data = pd.DataFrame(columns = keys)
+
     transmit_interval = 10 # Define server transmission interval
     sample_interval = 1 # Define data collecting intervals
     frames = [] # Buffer container for video frame stream
@@ -320,7 +323,6 @@ def main():
     head_pose_mean = np.zeros((1,3))
 
     '''Define projects and project area of interest'''
-    project_key = ["a","b","c","d"]
     boxes = np.array([
     [0, 0, cam.w, cam.h]
     ])
@@ -330,7 +332,6 @@ def main():
         _thread.start_new_thread(capture_frame,(cam,frames,))
         _thread.start_new_thread(frames_manage,(frames,))
         _thread.start_new_thread(transmit_data,(cam.valid_persons,stored_data,))
-
     except:
         raise
 
@@ -426,10 +427,14 @@ def main():
                             # keys = ads.get_key_name()
                             # p_id = ads.get_proj_id()
                             proj = ads.get_proj_id()
-                            projects = {"a": 0, "b": 0, "c": 0, "d": 0}
+                            # projects = {"a": 0, "b": 0, "c": 0, "d": 0}
+                            projects = {}
+                            for key in ads_keys:
+                                projects[key] = 0
+
                             if proj != None:
                                 stayed_time = round(time.time()-inf_start,2)
-                                projects[project_key[proj]] = stayed_time
+                                projects[proj] = stayed_time
                                 personAttributes["project"] = projects
                             else:
                                 personAttributes["project"] = projects
@@ -495,5 +500,5 @@ if __name__ == '__main__':
     ads = Advertisment(ads_path)
     p = Process(target = ads.display_ads_video, args = ())
     p.start()
-    sys.exit(main() or 0)
-    p.join()
+    sys.exit(main(ads) or 0)
+    # p.join()

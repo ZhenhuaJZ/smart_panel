@@ -192,6 +192,6 @@ class Camera(object):
             if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
                 print("[CREAT] new pid" + str(self.pid))
                 enter_t = time.time()
-                p = Person(self.pid, xCenter, yCenter, enter_t)
+                p = Person(self.pid, xCenter, yCenter, enter_t, proj)
                 self.persons.append(p)
                 self.pid += 1

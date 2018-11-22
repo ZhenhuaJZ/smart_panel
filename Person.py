@@ -1,7 +1,7 @@
 from functools import reduce
 
 class Person:
-    def __init__(self, id, x, y, enter_t):
+    def __init__(self, id, x, y, enter_t, proj_keys):
 
         self.id = id
         self.x = x
@@ -16,7 +16,7 @@ class Person:
 
         self.avg_age = []
         self.avg_gender = []
-        self.proj_view_time = {"a":0, "b":0, "c":0, "d":0}
+        self.proj_view_time = proj_keys
 
     def getId(self):
         return self.id
