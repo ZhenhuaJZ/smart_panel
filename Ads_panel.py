@@ -17,7 +17,7 @@ class Advertisment (object):
         self.window_name = 'Ads'
         self.screen = screeninfo.get_monitors()[0]
         self.time_interval = 10
-        self.cur_id = "-1"
+        self.cur_id = None
         self.key_name = []
         self.frames = []
 
