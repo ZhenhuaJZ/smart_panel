@@ -4,7 +4,7 @@ import os
 import time
 # from moviepy.editor import *
 # import pygame
-# import pyglet
+import pyglet
 from subprocess import call
 from threading import Thread
 import _thread
@@ -80,12 +80,6 @@ class Advertisment (object):
             if length > 10:
                 self.frames.pop(-1)
 
-    # def play_audio(self):
-    #     audio_path = os.path.join(self.path, "adv1.mp3")
-    #     music = pyglet.resource.media(audio_path)
-    #     music.play()
-    #     pyglet.app.run()
-
     def display_ads_video(self):
 
         cv2.namedWindow(self.window_name,cv2.WND_PROP_FULLSCREEN)
@@ -93,9 +87,14 @@ class Advertisment (object):
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
                           cv2.WINDOW_FULLSCREEN)
 
+        def play_audio():
+            music = pyglet.resource.media("adv1.mp3")
+            music.play()
+            pyglet.app.run()
+
         _thread.start_new_thread(self.capture_frame,())
         _thread.start_new_thread(self.frames_manage,())
-        # _thread.start_new_thread(self.play_audio,())
+        _thread.start_new_thread(play_audio,())
 
         while 1:
 

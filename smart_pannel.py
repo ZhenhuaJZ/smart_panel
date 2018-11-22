@@ -498,18 +498,14 @@ if __name__ == '__main__':
     """Ads Info"""
     ads_path = './ads/'
     ads = Advertisment(ads_path)
-<<<<<<< HEAD
-    pool = Pool(processes=2)
-    # p1 = Process(target = main, args = ())
-    # p2 = Process(target = ads.display_ads_video, args = ())
-    pool.apply_async(main, args = ())
-    pool.apply_async(ads.display_ads_video, args = ())
-    # sys.exit(main() or 0)
-    pool.close()
-    pool.join()
-=======
+
     p = Process(target = ads.display_ads_video, args = ())
     p.start()
     sys.exit(main(ads) or 0)
-    # p.join()
->>>>>>> a82275b1124af899a3898ed158476ee85f89f112
+    p.join()
+
+    # pool = Pool(processes=4)
+    # pool.apply_async(main, args = (ads,))
+    # pool.apply_async(ads.display_ads_video, args = ())
+    # pool.close()
+    # pool.join()
