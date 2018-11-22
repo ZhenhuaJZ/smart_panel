@@ -87,6 +87,8 @@ def transmit_data(persons, stored_data):
             stored_data.fillna(-1,inplace = True) # Process None data
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
+
+            print(stored_data)
             try:
                 r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
@@ -312,7 +314,7 @@ def main(ads):
     start_store_time = time.time()
     start_transmit_time = time.time()
     ads_keys = ads.get_key_name()
-    keys = ['gmt_occur', 'pid', 'gender', 'enter_t', 'exit_t', 'dur']
+    keys = ['gmt_occur', 'pid','age', 'gender', 'enter_t', 'exit_t', 'dur']
     keys.extend(ads_keys)
     stored_data = pd.DataFrame(columns = keys)
 
