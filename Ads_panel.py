@@ -4,6 +4,7 @@ import os
 import time
 # from moviepy.editor import *
 # import pygame
+# import pyglet
 from subprocess import call
 from threading import Thread
 import _thread
@@ -72,11 +73,18 @@ class Advertisment (object):
         while 1:
             _, frame = self.video.read()
             self.frames.insert(0, frame)
+
     def frames_manage(self):
         while 1:
             length = len(self.frames)
             if length > 10:
                 self.frames.pop(-1)
+
+    # def play_audio(self):
+    #     audio_path = os.path.join(self.path, "adv1.mp3")
+    #     music = pyglet.resource.media(audio_path)
+    #     music.play()
+    #     pyglet.app.run()
 
     def display_ads_video(self):
 
@@ -87,6 +95,7 @@ class Advertisment (object):
 
         _thread.start_new_thread(self.capture_frame,())
         _thread.start_new_thread(self.frames_manage,())
+        # _thread.start_new_thread(self.play_audio,())
 
         while 1:
 
@@ -94,14 +103,11 @@ class Advertisment (object):
                 frame = self.frames[0]
             except Exception as e:
                 continue
-            # frame = self.frameDetections()
-            # _, frame = self.video.read()
             cv2.imshow(self.window_name,frame)
-            key = cv2.waitKey(10)
+            key = cv2.waitKey(1)
             if key == 27:
                 break
 
-        # pygame.display.set_caption('Hello World!')
         # clip = VideoFileClip(os.path.join(self.path, 'adv1.mp4'))
         # clip.preview()
         # pygame.quit()

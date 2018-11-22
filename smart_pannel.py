@@ -28,7 +28,7 @@ import _thread
 from _datetime import datetime
 import requests
 import screeninfo
-from multiprocessing import Process
+from multiprocessing import Process, Pool
 '''Import custom class'''
 from AreaOfInterest import *
 from Person import *
@@ -436,7 +436,7 @@ def main():
                             personContours.append(personAttributes)
 
                         except Exception as e:
-                            pass
+                            raise
 
                         if obj[2] > args.prob_threshold:
                             xmin = int(obj[3] * cam.w)
@@ -493,7 +493,11 @@ if __name__ == '__main__':
     """Ads Info"""
     ads_path = './ads/'
     ads = Advertisment(ads_path)
-    p = Process(target = ads.display_ads_video, args = ())
-    p.start()
-    sys.exit(main() or 0)
-    p.join()
+    pool = Pool(processes=2)
+    # p1 = Process(target = main, args = ())
+    # p2 = Process(target = ads.display_ads_video, args = ())
+    pool.apply_async(main, args = ())
+    pool.apply_async(ads.display_ads_video, args = ())
+    # sys.exit(main() or 0)
+    pool.close()
+    pool.join()
