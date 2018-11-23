@@ -28,7 +28,7 @@ import _thread
 from _datetime import datetime
 import requests
 import screeninfo
-from multiprocessing import Process, Pool
+from multiprocessing import Process, Pool, Manager
 '''Import custom class'''
 from AreaOfInterest import *
 from Person import *
@@ -88,7 +88,9 @@ def transmit_data(persons, stored_data):
             for key in stored_data.columns:
                 transmit_data[key] = stored_data[key].values.tolist()
 
-            print(stored_data)
+            ## DEBUG:
+            if len(stored_data) != 0 : print(stored_data)
+
             try:
                 r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
@@ -98,7 +100,7 @@ def transmit_data(persons, stored_data):
             stored_data.drop(stored_data.index, inplace = True)
 
             #clear valid person after transmit
-            cam.valid_persons.clear()
+            persons.clear()
 
 def frame_process(frame, n, c, h, w):
     in_frame = cv2.resize(frame, (w, h))
@@ -202,7 +204,14 @@ def draw_UI_info(frame, render_time, cam):
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
 
-def main(ads):
+"""read value from queue (process communication)"""
+def read_queue(q):
+    global proj
+    if not q.empty():
+        proj = q.get()
+        print("[INFO] Current Video : ", proj)
+
+def main(ads,q):
 
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
@@ -290,10 +299,6 @@ def main(ads):
     cam = Camera(input_stream)
     camera_are = cam.w * cam.h
 
-    """Ads Info"""
-    # ads_path = './ads/'
-    # ads = Advertisment(ads_path)
-
     """Screen Info"""
     screen = screeninfo.get_monitors()[0]
     window_name = "SmartPanel"
@@ -306,7 +311,6 @@ def main(ads):
     cv2.namedWindow(window_name,cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window_name, 400,400)
     cv2.moveWindow(window_name, 1900,1000)
-
 
     '''Variable Definition'''
     #request id, render time
@@ -373,11 +377,10 @@ def main(ads):
                     personAttributes = {} #muset inside of the face loop otherwise it wont update
 
                     #if no person skip
-                    size = 0
-                    xmin_fc = int(obj_fc[3] * cam.w) - size
-                    ymin_fc = int(obj_fc[4] * cam.h) - size
-                    xmax_fc = int(obj_fc[5] * cam.w) + size
-                    ymax_fc = int(obj_fc[6] * cam.h) + size
+                    xmin_fc = int(obj_fc[3] * cam.w)
+                    ymin_fc = int(obj_fc[4] * cam.h)
+                    xmax_fc = int(obj_fc[5] * cam.w)
+                    ymax_fc = int(obj_fc[6] * cam.h)
                     width_fc = xmax_fc-xmin_fc
                     height_fc = ymax_fc-ymin_fc
                     face_area = width_fc * height_fc
@@ -395,7 +398,6 @@ def main(ads):
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
-                            # cv2.imwrite('./face/leo.png',frame[ymin_fc + 5 :ymax_fc + 5 ,xmin_fc + 5 :xmax_fc + 5 ])
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
                             gender = np.argmax(res_ag['prob'])
@@ -429,10 +431,8 @@ def main(ads):
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
 
-                            # keys = ads.get_key_name()
-                            # p_id = ads.get_proj_id()
-                            proj = ads.get_proj_id()
-                            # projects = {"a": 0, "b": 0, "c": 0, "d": 0}
+                            read_queue(q)
+
                             projects = {}
                             for key in ads_keys:
                                 projects[key] = 0
@@ -501,7 +501,7 @@ def main(ads):
 
 if __name__ == '__main__':
     """Ads Info"""
-    ads_path = './ads/'
+    ads_path = './ads/videos'
     ads = Advertisment(ads_path)
 
     # p = Process(target = ads.display_ads_video, args = ())
@@ -509,9 +509,10 @@ if __name__ == '__main__':
     # sys.exit(main(ads) or 0)
     # p.join()
 
+    q = Manager().Queue() #Manager queue is designed for pool
     pool = Pool(processes=4)
-    pool.apply_async(main, args = (ads,))
-    pool.apply_async(ads.play_audio, args = ())
-    pool.apply_async(ads.display_ads_video, args = ())
+    pool.apply_async(ads.call_cmd, args = (q,))
+    pool.apply_async(main, args = (ads,q,))
+    # pool.apply_async(ads.play_audio, args = ())
     pool.close()
     pool.join()
