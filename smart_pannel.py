@@ -162,13 +162,13 @@ def eular_to_image(frame,eular_angle,center,scale):
 def draw_detection_info(frame, cam, personContours, end_points):
 
     #fixed bounding box out of inActiveZone and still draw on the graph
-    index_not_in_active = [index for index, attri in enumerate(personContours) if attri['rect'][0] not in range(cam.rangeLeft, cam.rangeRight)]
-    for i in index_not_in_active:
-        try:
-            personContours.pop(i)
-            end_points.pop(i)
-        except Exception as e:
-            pass
+    # index_not_in_active = [index for index, attri in enumerate(personContours) if attri['rect'][0] not in range(cam.rangeLeft, cam.rangeRight)]
+    # for i in index_not_in_active:
+    #     try:
+    #         personContours.pop(i)
+    #         end_points.pop(i)
+    #     except Exception as e:
+    #         pass
 
 
     for p, attri, end_point in zip(cam.display_pid, personContours, end_points):
@@ -211,7 +211,7 @@ def read_queue(q):
         proj = q.get()
         print("[INFO] Current Video : ", proj)
 
-def main(ads,q):
+def main(ads,q,ads_q):
 
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
@@ -393,7 +393,6 @@ def main(ads,q):
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
                         yCenter_fc = int(ymin_fc + (height_fc)/2)
                         rect = (xCenter_fc, yCenter_fc, width_fc, height_fc)
-
                         try:
                             #crop face
                             face = frame[ymin_fc:ymax_fc,xmin_fc:xmax_fc] #crop the face
@@ -406,6 +405,7 @@ def main(ads,q):
                             personAttributes["rect"] = rect
                             personAttributes["age"] =age
                             personAttributes["gender"] = gender
+                            ads.ads_prediction(ads_q, xCenter_fc, age, gender, cam.w)
 
                             '''Head pose recognition and process'''
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
@@ -510,9 +510,10 @@ if __name__ == '__main__':
     # p.join()
 
     q = Manager().Queue() #Manager queue is designed for pool
+    ads_q = Manager().Queue() #Manager queue is designed for pool
     pool = Pool(processes=4)
-    pool.apply_async(ads.call_cmd, args = (q,))
-    pool.apply_async(main, args = (ads,q,))
+    pool.apply_async(ads.call_cmd, args = (q,ads_q))
+    pool.apply_async(main, args = (ads,q,ads_q))
     # pool.apply_async(ads.play_audio, args = ())
     pool.close()
     pool.join()

@@ -18,6 +18,7 @@ class Advertisment (object):
         self.cur_id = None
         self.key_name = []
         self.frames = []
+        self.predict_id = None
 
 ##########################"""Normal Fucntion"""#################################
 
@@ -33,8 +34,14 @@ class Advertisment (object):
         self.key_name = [os.path.splitext(key)[0] for key in key_names]
         return self.key_name
 
-    def write_queue(self, id, q):
-        q.put(id)
+    def write_queue(self, input, q):
+        q.put(input)
+
+    def read_queue(self,q):
+        while 1:
+            if not q.empty():
+                proj = q.get()
+                self.predict_id = proj
 #########################"""Display Ads"""######################################
     """Picture display"""
     def display_ads(self):
@@ -117,7 +124,7 @@ class Advertisment (object):
         # pygame.quit()
 
     """This is using ffmepg to open video"""
-    def call_cmd(self, q):
+    def call_cmd(self, q_out, q_in):
 
         files = os.listdir(self.path)
         videos = [file for file in files if file.endswith(".mp4") or file.endswith(".mkv") or file.endswith(".webm")]
@@ -126,17 +133,33 @@ class Advertisment (object):
         cv2.moveWindow(self.window_name, self.screen.x, self.screen.y)
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
                           cv2.WINDOW_FULLSCREEN)
+        """Read predict id"""
+        _thread.start_new_thread(self.read_queue,(q_in,))
 
         while 1:
-
             #black canvas
             img = cv2.imread("bg.png")
             cv2.imshow(self.window_name, img)
             key = cv2.waitKey(100)
 
             for v in videos:
+                if self.predict_id != None:
+                     v = self.predict_id
+                     self.predict_id = None #reset
+
                 id = os.path.splitext(v)[0] #set video id
-                # self.set_proj_id(id)
-                self.write_queue(id,q)
+                self.write_queue(id,q_out)
                 v = os.path.join(self.path, v)
                 call(["ffplay", str(v), '-autoexit', '-fs', '-loglevel', 'quiet']) #full screen
+                # call(["ffplay", str(v), '-autoexit', '-x', '200', '-y', '200', '-loglevel', 'quiet']) #full screen
+
+    def ads_prediction(self, ads_q, xCenter, age, gender, camera_width):
+        inPrepareZone= xCenter not in range(int(1*camera_width/8) ,int(7*camera_width/8))
+        if inPrepareZone and age < 30 and gender == 1:
+            self.write_queue("advl15.mkv", ads_q)
+        elif inPrepareZone and age < 30 and gender == 0:
+            self.write_queue("advs15.mkv", ads_q)
+        elif inPrepareZone and age >= 30 and gender == 1:
+            self.write_queue("advl5.mkv", ads_q)
+        elif inPrepareZone and age >= 30 and gender == 0:
+            self.write_queue("advl1.mp4", ads_q)
