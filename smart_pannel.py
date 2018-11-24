@@ -501,7 +501,7 @@ def main(ads,q):
 
 if __name__ == '__main__':
     """Ads Info"""
-    ads_path = './ads/videos'
+    ads_path = './ads/sl_videos'
     ads = Advertisment(ads_path)
 
     # p = Process(target = ads.display_ads_video, args = ())

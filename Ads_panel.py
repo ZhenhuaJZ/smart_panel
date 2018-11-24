@@ -120,7 +120,7 @@ class Advertisment (object):
     def call_cmd(self, q):
 
         files = os.listdir(self.path)
-        videos = [file for file in files if file.endswith(".mp4") or file.endswith(".mkv")]
+        videos = [file for file in files if file.endswith(".mp4") or file.endswith(".mkv") or file.endswith(".webm")]
 
         cv2.namedWindow(self.window_name,cv2.WND_PROP_FULLSCREEN)
         cv2.moveWindow(self.window_name, self.screen.x, self.screen.y)
