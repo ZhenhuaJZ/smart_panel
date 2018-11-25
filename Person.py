@@ -60,3 +60,9 @@ class Person:
         proj_list = [self.proj_view_time[key] for key in self.proj_view_time.keys()]
         list.extend(proj_list)
         return list
+    def getAttris_dict(self):
+        key = ['pid', 'age', 'gender', 'enter_t', 'exit_t', 'dur']
+        list = [self.id, self.age, self.gender, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
+        attributes = dict(zip(key, list))
+        attributes.update(self.proj_view_time)
+        return attributes

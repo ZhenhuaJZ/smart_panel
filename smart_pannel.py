@@ -38,10 +38,6 @@ from Ads_panel import *
 '''Function definition'''
 def build_argparser():
     parser = ArgumentParser()
-    parser.add_argument("-i", "--input",
-                        help="Path to video file or image. 'cam' for capturing video stream from camera", required=True,
-                        type=str)
-
     parser.add_argument("-pp", "--plugin_dir", help="Path to a plugin folder", type=str, default=None)
     parser.add_argument("-m", "--model", required=True, type=str) #Path to an .xml file with a trained model
     parser.add_argument("-m_fc", "--model_fc", required=True, type=str)
@@ -65,7 +61,7 @@ def build_argparser():
 '''frames capturing and manage threading functions'''
 def capture_frame(cam, frames):
     while cam.video.isOpened():
-        frames.insert(0, cam.frameDetections());
+        frames.insert(0, cam.video.read());
 
 def frames_manage(frames):
     while 1:
@@ -78,8 +74,9 @@ def transmit_data(persons, stored_data):
     transmit_time = 10
     start_time = time.time()
     while 1:
+        length = len(persons)
         if time.time() - start_time > transmit_time:
-            for i in range(len(persons)):
+            for i in range(length):
                 list = persons[i].getAttris()
                 list.insert(0,str(datetime.now().strftime("%x-%X")))
                 stored_data.loc[len(stored_data)] = list
@@ -94,7 +91,6 @@ def transmit_data(persons, stored_data):
             try:
                 r = requests.post('http://127.0.0.1:5000/data',data = transmit_data)
             except Exception as e:
-                # print('unable to connect')
                 pass
             start_time = time.time()
             stored_data.drop(stored_data.index, inplace = True)
@@ -115,9 +111,6 @@ def eular_to_image(frame,eular_angle,center,scale):
                    [0, 0, 1]], dtype = np.float64)
     ##### Convert from degree to radian
     eular_angle = eular_angle
-    # yaw = eular_angle['angle_y_fc'][0] * math.pi/180
-    # pitch = eular_angle['angle_p_fc'][0] * math.pi/180
-    # roll = eular_angle['angle_r_fc'][0] * math.pi/180
     yaw = eular_angle[0,0] * math.pi/180
     pitch = eular_angle[0,1] * math.pi/180
     roll = eular_angle[0,2] * math.pi/180
@@ -156,7 +149,6 @@ def eular_to_image(frame,eular_angle,center,scale):
     # cv2.line(frame,(center[0],center[1]),(z_p[0],z_p[1]),[0,0,255],4)
     # cv2.line(frame,(center[0],center[1]),(z_p2[0],z_p2[1]),[0,125,255],4)
 
-    # cv2.circle(frame,(z_p2[0],z_p2[1]), 50, [0,125,255],2)
     return z_p2
 
 def draw_detection_info(frame, cam, personContours, end_points):
@@ -204,14 +196,7 @@ def draw_UI_info(frame, render_time, cam):
     cv2.putText(frame, statistics_population, (15, 30), cv2.FONT_HERSHEY_COMPLEX, 0.5,
                 (10, 10, 200), 1)
 
-"""read value from queue (process communication)"""
-def read_queue(q):
-    global proj
-    if not q.empty():
-        proj = q.get()
-        print("[INFO] Current Video : ", proj)
-
-def main(ads,q,ads_q):
+def main(ads,proj_q,ads_q,prediction_q):
 
     log.basicConfig(format="[ %(levelname)s ] %(message)s", level=log.INFO, stream=sys.stdout)
     args = build_argparser().parse_args()
@@ -284,11 +269,6 @@ def main(ads,q,ads_q):
     n_hp, c_hp, h_hp, w_hp = net_hp.inputs[input_blob_hp]
     del net, net_ag, net_fc, net_attri, net_hp
 
-    if args.input == 'cam':
-        input_stream = 0
-    else:
-        input_stream = args.input
-        assert os.path.isfile(args.input), "Specified input file doesn't exist"
     if args.labels:
         with open(args.labels, 'r') as f:
             labels_map = [x.strip() for x in f]
@@ -296,8 +276,8 @@ def main(ads,q,ads_q):
         labels_map = None
 
     """Cam Info"""
-    cam = Camera(input_stream)
-    camera_are = cam.w * cam.h
+    cam = Camera(0)
+    camera_area = cam.w * cam.h
 
     """Screen Info"""
     screen = screeninfo.get_monitors()[0]
@@ -309,7 +289,8 @@ def main(ads,q,ads_q):
     #                   cv2.WINDOW_FULLSCREEN)
     """small screen"""
     cv2.namedWindow(window_name,cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 400,400)
+    # cv2.resizeWindow(window_name, 400,400)
+    cv2.resizeWindow(window_name, 600,600)
     cv2.moveWindow(window_name, 1900,1000)
 
     '''Variable Definition'''
@@ -347,7 +328,6 @@ def main(ads,q,ads_q):
     while 1:
         try:
             ret, frame = frames[0];
-            # frame = cv2.flip(frame,1)
         except:
             continue
         if not ret:
@@ -386,8 +366,8 @@ def main(ads,q,ads_q):
                     face_area = width_fc * height_fc
 
                     #get rid off small face
-                    # DEBUG: # print(camera_are/face_area)
-                    #if camera_are/face_area < 100:
+                    # DEBUG: # print(camera_area/face_area)
+                    #if camera_area/face_area < 100:
                     if True:
                         #central of the face
                         xCenter_fc = int(xmin_fc + (width_fc)/2)
@@ -399,13 +379,12 @@ def main(ads,q,ads_q):
                             face = cv2.medianBlur(face,5) # Medium blur to reduce noise in image
                             in_face = frame_process(face, n_ag, c_ag, h_ag, w_ag)
                             res_ag = exec_net_age.infer({input_blob_ag : in_face})
-                            gender = np.argmax(res_ag['prob'])
+                            gender = int(np.argmax(res_ag['prob']))
                             age = int(res_ag['age_conv3']*100)
 
                             personAttributes["rect"] = rect
                             personAttributes["age"] =age
                             personAttributes["gender"] = gender
-                            ads.ads_prediction(ads_q, xCenter_fc, age, gender, cam.w)
 
                             '''Head pose recognition and process'''
                             in_face_hp = frame_process(face, n_hp, c_hp, h_hp, w_hp)
@@ -431,7 +410,10 @@ def main(ads,q,ads_q):
                             end_point = eular_to_image(frame,head_pose_mean,np.array([xCenter_fc, yCenter_fc]), 300)
                             end_points.append(end_point)
 
-                            read_queue(q)
+                            """read value from queue (process communication)"""
+                            if not proj_q.empty():
+                                proj = proj_q.get()
+                                print("[INFO] Current Video : ", proj)
 
                             projects = {}
                             for key in ads_keys:
@@ -478,10 +460,8 @@ def main(ads,q,ads_q):
                                     pass
 
             cam.people_tracking(personContours)
+            prediction_q.put(cam.persons)
             aoi.check_box(end_points)
-            # aoi.update_info(frame)
-            # aoi.draw_bounding_box(frame)
-
             #display the pid icon and draw face bounding box
             draw_detection_info(frame, cam, personContours, end_points)
 
@@ -504,16 +484,12 @@ if __name__ == '__main__':
     ads_path = './ads/sl_videos'
     ads = Advertisment(ads_path)
 
-    # p = Process(target = ads.display_ads_video, args = ())
-    # p.start()
-    # sys.exit(main(ads) or 0)
-    # p.join()
-
-    q = Manager().Queue() #Manager queue is designed for pool
+    proj_q = Manager().Queue() #Manager queue is designed for pool
     ads_q = Manager().Queue() #Manager queue is designed for pool
+    prediction_q = Manager().Queue() #Manager queue is designed for pool
     pool = Pool(processes=4)
-    pool.apply_async(ads.call_cmd, args = (q,ads_q))
-    pool.apply_async(main, args = (ads,q,ads_q))
-    # pool.apply_async(ads.play_audio, args = ())
+    pool.apply_async(ads.call_cmd, args = (proj_q,ads_q,))
+    pool.apply_async(main, args = (ads, proj_q, ads_q, prediction_q,))
+    pool.apply_async(ads.ads_prediction, args = (ads_q, prediction_q,))
     pool.close()
     pool.join()

@@ -12,10 +12,7 @@ class Camera(object):
         self.sys_clear_time = self.trustworth_time/2
         self.no_detection_time = time.time()
 
-        self.input = input
-        self.video = cv2.VideoCapture(self.input)
-        # self.video.set(3,1280)
-        # self.video.set(4,720)
+        self.video = cv2.VideoCapture(input)
         self.w = int(self.video.get(3))
         self.h = int(self.video.get(4))
         self.rangeLeft = int(1*self.w/8)
@@ -44,14 +41,9 @@ class Camera(object):
     def __del__(self):
         self.video.release()
 
-    def frameDetections(self):
-        return self.video.read()
-
     def fack_preson_check(self):
         #check every ppl location in every "sys_clear_time"
-        '''
 
-        '''
         if int(time.time() - self.start_time) % self.sys_clear_time == 0 and self.check_key == True:
             cur_checklist = {}
             cur_indexlist = {}
