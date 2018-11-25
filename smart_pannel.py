@@ -476,8 +476,7 @@ def main(ads,q,ads_q):
                                     res_attri = exec_net_attri.infer({input_blob_attri : in_attri})[out_blob_attri][0].reshape(-1)
                                 except Exception as e:
                                     pass
-
-            cam.people_tracking(personContours)
+            cam.people_tracking(personContours, time.time() - inf_start)
             aoi.check_box(end_points)
             # aoi.update_info(frame)
             # aoi.draw_bounding_box(frame)
@@ -498,6 +497,7 @@ def main(ads,q,ads_q):
     cv2.destroyAllWindows()
     del exec_net
     del plugin
+
 
 if __name__ == '__main__':
     """Ads Info"""

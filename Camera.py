@@ -1,6 +1,7 @@
 import time
 import cv2
 import math
+import sys
 import numpy as np
 from Person import *
 
@@ -113,8 +114,7 @@ class Camera(object):
         elif int(time.time() - self.start_time) % self.sys_clear_time != 0:
             self.stable_check_key = True
 
-    def people_tracking(self, rects):
-
+    def people_tracking(self, rects, dt):
         '''
         if no detection longer than 3min flush system
         '''
@@ -123,7 +123,6 @@ class Camera(object):
         #     self.stable_persons = []
         #     self.no_detection_time = time.time()
         #     print("[WARNING] no detection")
-
         self.display_pid = [] #fresh display list must here !!!!!
         for person in rects:
             xCenter, yCenter, w, h = person['rect']
@@ -137,7 +136,7 @@ class Camera(object):
             queue1
             """
             self.fack_preson_check()
-
+            # print("here")
             for index, p in enumerate(self.persons):
                 #if person stay in frame over 5s
                 if time.time()- p.getEnter_t() > self.trustworth_time:
@@ -163,35 +162,25 @@ class Camera(object):
                             self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
                         except Exception as e:
                             pass
-
             """
             queue2
             """
             self.stabel_fack_preson_check()
-            for index, p in enumerate(self.stable_persons):
-                dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(age, gender, proj)
-                if dist <= w and dist <=h:
-                    if inActiveZone:
-                        new = False
-                        self.display_pid.append([p.getId(), (10, 200, 10)]) #id, display color
-                        p.updateCoords(xCenter,yCenter)
-                        break
-                    else:
-                        self.entered += 1 #count ppl in the area
-                        try:
-                            self.stable_last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
-                        except Exception as e:
-                            pass
 
-                        print("[MOVE] q2 pid{} -> q3".format(p.getId()))
-                        self.stable_persons.pop(index)
-                        p.updateLeavetime(time.time()) #update person leave time
-                        self.valid_persons.append(p)
+            '''for each people, predict current state base on prev state'''
+            for person in self.persons:
+                try:
+                    person.predictState(dt)
+                except Exception as e:
+                    print(e)
+            '''Match predicted state with people that are detected'''
+
+            '''If more than one person is not found, update only predict current state and track loss time'''
+
             #make sure the total persons number wont excess the bounding box
             if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
                 print("[CREAT] new pid" + str(self.pid))
                 enter_t = time.time()
-                p = Person(self.pid, xCenter, yCenter, enter_t, proj)
+                p = Person(self.pid, xCenter, yCenter, enter_t, proj, dt)
                 self.persons.append(p)
                 self.pid += 1

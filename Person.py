@@ -1,11 +1,21 @@
 from functools import reduce
+import numpy as np
 
 class Person:
-    def __init__(self, id, x, y, enter_t, proj_keys):
+    def __init__(self, id, x, y, enter_t, proj_keys, dt):
 
         self.id = id
         self.x = x
         self.y = y
+
+        '''State variables for kalman tracking'''
+        self.state = np.array([self.x, self.y, 0, 0]) # x y x^ y^
+        self.covar = np.array([[dt**4/4, 0, dt**3/2, 0],
+                       [0, dt**4/4, 0, dt**3/2],
+                       [dt**3/2, 0, dt**2, 0],
+                       [0, dt**3/2, 0, dt**2]])
+        self.tracked = 1
+        self.lost = 0
 
         self.enter_t = enter_t
         self.exit_t = -1
@@ -60,3 +70,31 @@ class Person:
         proj_list = [self.proj_view_time[key] for key in self.proj_view_time.keys()]
         list.extend(proj_list)
         return list
+
+    def predictState(self, dt, z = None):
+        '''Initialise kalman filter variables'''
+        A = np.array([[1,0,dt,0],[0,1,0,dt],[0,0,1,0],[0,0,0,1]])
+        B = np.array([(dt**2/2), (dt**2/2), dt, dt])
+        C = np.array([[1,0,0,0],[0,1,0,0]])
+        Ez = np.array([[1,0],[0,1]])
+        Ex = np.array([[dt**4/4, 0, dt**3/2, 0],
+                       [0, dt**4/4, 0, dt**3/2],
+                       [dt**3/2, 0, dt**2, 0],
+                       [0, dt**3/2, 0, dt**2]])
+        u = 0.0005
+        '''Predict current state'''
+        print("[debug] a dot state\n ", A.dot(self.state))
+        Q_estimate = A.dot(self.state) + B*u
+        print("[debug] Q_estimate\n", Q_estimate)
+        '''Predict covariance'''
+        self.covar = np.matmul(np.matmul(A, self.covar), np.transpose(A)) + np.array(Ex)
+        print("[debug] covar\n", self.covar)
+        '''Obtain kalman gain'''
+        # K = P * C.transpose * inv(C * P * C.transpose + Ez)
+
+        # self.state[0:1] = Q_estimate
+
+
+    def updateState(self, z):
+        Q_estimate = Q_estimate + K * (z - C * Q_estimate)
+        self.state[0:1] = Q_estimate
