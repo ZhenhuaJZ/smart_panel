@@ -150,7 +150,7 @@ class Camera(object):
                     rectCenters.append(center)
                     cost.append(math.sqrt((center[0] - loc[0])**2 + (center[1] - loc[1])**2))
                 costMat.append(cost)
-            costMat = np.array(costMat)
+            costMat = np.log(np.array(costMat))
             print("[debug] costMat\n", costMat)
             print("[debug] locMat\n", locMat)
             print("[debug] recCenter\n", rectCenters)
