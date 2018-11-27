@@ -72,8 +72,9 @@ class Person:
         list.extend(proj_list)
         return list
 
-    def predictState(self, dt, z = None):
+    def predictState(self, dt):
         '''Initialise kalman filter variables'''
+        ## OPTIMIZE: variable initialization
         A = np.array([[1,0,dt,0],[0,1,0,dt],[0,0,1,0],[0,0,0,1]])
         B = np.array([(dt**2/2), (dt**2/2), dt, dt])
         C = np.array([[1,0,0,0],[0,1,0,0]])
@@ -84,18 +85,20 @@ class Person:
                        [0, dt**3/2, 0, dt**2]])
         u = 0.0005
         '''Predict current state'''
-        print("[debug] a dot state\n ", A.dot(self.state))
+        # print("[debug] a dot state\n ", A.dot(self.state))
         Q_estimate = A.dot(self.state) + B*u
-        print("[debug] Q_estimate\n", Q_estimate)
+        # print("[debug] Q_estimate\n", Q_estimate)
         '''Predict covariance'''
         self.covar = np.matmul(np.matmul(A, self.covar), np.transpose(A)) + np.array(Ex)
-        print("[debug] covar\n", self.covar)
+        # print("[debug] covar\n", self.covar)
         '''Obtain kalman gain'''
         self.K = self.covar.dot(np.transpose(C)).dot(np.linalg.inv(C.dot(self.covar).dot(np.transpose(C)) + Ez))
 
         self.state = Q_estimate
 
-
     def updateState(self, z):
-        Q_estimate = Q_estimate + K * (z - C * Q_estimate)
-        self.state[0:1] = Q_estimate
+        C = np.array([[1,0,0,0],[0,1,0,0]])
+        Q_estimate = self.state + self.K.dot(z - C.dot(self.state))
+        self.state = Q_estimate
+        self.x = self.state[0]
+        self.y = self.state[1]

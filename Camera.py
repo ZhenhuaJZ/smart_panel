@@ -4,6 +4,7 @@ import math
 import sys
 import numpy as np
 from Person import *
+from scipy.optimize import linear_sum_assignment
 
 class Camera(object):
     def __init__(self, input):
@@ -124,63 +125,155 @@ class Camera(object):
         #     self.no_detection_time = time.time()
         #     print("[WARNING] no detection")
         self.display_pid = [] #fresh display list must here !!!!!
-        for person in rects:
-            xCenter, yCenter, w, h = person['rect']
-            gender = person['gender']
-            age = person['age']
-            proj = person['project']
-            new = True
-            inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
 
-            """
-            queue1
-            """
-            self.fack_preson_check()
-            # print("here")
-            for index, p in enumerate(self.persons):
-                #if person stay in frame over 5s
-                if time.time()- p.getEnter_t() > self.trustworth_time:
-                    print("[MOVE] q1 pid{} -> q2 pid{} ".format(p.getId(), str(self.stable_pid)))
-                    p.updatePid(self.stable_pid) #replace the pid with new pid
-                    self.stable_persons.append(p)
-                    self.persons.pop(index) #pop person from the persons list
-                    self.stable_pid += 1
+        '''Update current status of the people base on previous state of each person'''
+        for person in self.persons:
+            person.predictState(dt)
+        for person in self.stable_persons:
+            person.predictState(dt)
 
-                dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-                p.updateAttris(age, gender, proj)
-
-                if dist <= w and dist <=h:
-                    if inActiveZone:
-                        new = False
-                        self.display_pid.append([p.getId(), (10, 10, 200)]) #id, display color
-                        p.updateCoords(xCenter,yCenter)
-                        break
-                    else:
-                        try:
-                            self.persons.pop(index)
-                            print("[POP]  pid{} removed from q1".format(str(p.getId())))
-                            self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
-                        except Exception as e:
-                            pass
-            """
-            queue2
-            """
-            self.stabel_fack_preson_check()
-
-            '''for each people, predict current state base on prev state'''
+        '''Track people who are just moved in'''
+        '''Generate cost matrix'''
+        costMat = []
+        locMat = []
+        rectCenters = []
+        try:
             for person in self.persons:
-                try:
-                    person.predictState(dt)
-                except Exception as e:
-                    print(e)
-            '''Match predicted state with people that are detected'''
+                loc = person.state[0:2] # Extract x and y location of the person
+                locMat.append(loc)
+                cost = []
+                for dect_person in rects:
+                    center = dect_person['rect'][0:2]
+                    rectCenters.append(center)
+                    cost.append(math.sqrt((center[0] - loc[0])**2 + (center[1] - loc[1])**2))
+                costMat.append(cost)
+            costMat = np.array(costMat)
+            print("[debug] costMat\n", costMat)
+            print("[debug] locMat\n", locMat)
+            print("[debug] recCenter\n", rectCenters)
+        except Exception as e:
+            print(e)
+            raise
 
-            '''If more than one person is not found, update only predict current state and track loss time'''
+        '''Solve for minimal cost using hangarian algorithm'''
+        try:
+            if len(costMat) is not 0:
+                row_ind, col_ind = linear_sum_assignment(costMat)
+                print("[debug] row, col :{} {}".format(row_ind,col_ind))
+            else:
+                row_ind = []
+                col_ind = []
+        except Exception as e:
+            print(e)
+            pass
+        # print("[debug] row, ind :{} {}".format(row_ind,col_ind))
 
-            #make sure the total persons number wont excess the bounding box
-            if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
-                print("[CREAT] new pid" + str(self.pid))
-                enter_t = time.time()
-                p = Person(self.pid, xCenter, yCenter, enter_t, proj, dt)
-                self.persons.append(p)
-                self.pid += 1
+        '''Given assigned row and col index, assign and update person'''
+
+        for i in row_ind:
+            try:
+                person = self.persons[i]
+                rect = rects[col_ind[i]]
+                print("[debug] person center {}".format(person.state[0:2]))
+                print("[debug] person selected {}, {}".format(row_ind, rect['rect'][0:2]))
+
+                person.updateAttris(rect['age'], rect['gender'], rect['project'])
+                person.updateState(rect['rect'][0:2])
+                self.display_pid.append([person.getId(), (10, 10, 200), col_ind[i]])
+
+            except Exception as e:
+                print("[error] --update val--", e)
+                pass
+        print("[debug] length of persons {}".format(len(self.persons)))
+        # for index, person in enumerate(self.persons):
+        #     try:
+        #         # DEBUG: order of disappeared person changes id
+        #
+        #         rect = rects[col_ind[index]]
+        #         print("[debug] person center {}".format(person.state[0:2]))
+        #         print("[debug] person selected {}, {}".format(index, rect['rect'][0:2]))
+        #
+        #         person.updateAttris(rect['age'], rect['gender'], rect['project'])
+        #         person.updateState(rect['rect'][0:2])
+        #         self.display_pid.append([person.getId(), (10, 10, 200), col_ind[index]])
+        #     except Exception as e:
+        #         print("[error] --update val--", e)
+        #         pass
+
+        '''Check for new box'''
+        try:
+            boxes = [i for i in range(len(rects))]
+            box = list(set(boxes) - set(col_ind))
+            print(box)
+            if len(box):
+                for i in box:
+                    enter_t = time.time()
+                    rect = rects[i]
+                    p = Person(self.pid, rect['rect'][0], rect['rect'][1], enter_t, rect['project'], dt)
+                    self.persons.append(p)
+                    self.pid += 1
+        except Exception as e:
+            print("[error] --newbox check---", e)
+        print("*****************\n")
+        # time.sleep(1)
+
+        # for person in rects:
+        #     xCenter, yCenter, w, h = person['rect']
+        #     gender = person['gender']
+        #     age = person['age']
+        #     proj = person['project']
+        #     new = True
+        #     inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
+        #
+        #     """
+        #     queue1
+        #     """
+        #     self.fack_preson_check()
+        #     # print("here")
+        #     for index, p in enumerate(self.persons):
+        #         #if person stay in frame over 5s
+        #         if time.time()- p.getEnter_t() > self.trustworth_time:
+        #             print("[MOVE] q1 pid{} -> q2 pid{} ".format(p.getId(), str(self.stable_pid)))
+        #             p.updatePid(self.stable_pid) #replace the pid with new pid
+        #             self.stable_persons.append(p)
+        #             self.persons.pop(index) #pop person from the persons list
+        #             self.stable_pid += 1
+        #
+        #         dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
+        #         p.updateAttris(age, gender, proj)
+        #
+        #         if dist <= w and dist <=h:
+        #             if inActiveZone:
+        #                 new = False
+        #                 self.display_pid.append([p.getId(), (10, 10, 200)]) #id, display color
+        #                 p.updateCoords(xCenter,yCenter)
+        #                 break
+        #             else:
+        #                 try:
+        #                     self.persons.pop(index)
+        #                     print("[POP]  pid{} removed from q1".format(str(p.getId())))
+        #                     self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
+        #                 except Exception as e:
+        #                     pass
+        #     """
+        #     queue2
+        #     """
+        #     self.stabel_fack_preson_check()
+        #
+        #     '''for each people, predict current state base on prev state'''
+        #     for person in self.persons:
+        #         try:
+        #             person.predictState(dt)
+        #         except Exception as e:
+        #             print(e)
+        #     '''Match predicted state with people that are detected'''
+        #
+        #     '''If more than one person is not found, update only predict current state and track loss time'''
+        #
+        #     #make sure the total persons number wont excess the bounding box
+        #     if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
+        #         print("[CREAT] new pid" + str(self.pid))
+        #         enter_t = time.time()
+        #         p = Person(self.pid, xCenter, yCenter, enter_t, proj, dt)
+        #         self.persons.append(p)
+        #         self.pid += 1
