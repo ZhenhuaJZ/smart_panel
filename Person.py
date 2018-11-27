@@ -83,7 +83,7 @@ class Person:
                        [0, dt**4/4, 0, dt**3/2],
                        [dt**3/2, 0, dt**2, 0],
                        [0, dt**3/2, 0, dt**2]])
-        u = 0.0005
+        u = 5
         '''Predict current state'''
         # print("[debug] a dot state\n ", A.dot(self.state))
         Q_estimate = A.dot(self.state) + B*u
@@ -95,6 +95,8 @@ class Person:
         self.K = self.covar.dot(np.transpose(C)).dot(np.linalg.inv(C.dot(self.covar).dot(np.transpose(C)) + Ez))
 
         self.state = Q_estimate
+        self.x = self.state[0]
+        self.y = self.state[1]
 
     def updateState(self, z):
         C = np.array([[1,0,0,0],[0,1,0,0]])

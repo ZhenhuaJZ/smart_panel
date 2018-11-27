@@ -128,7 +128,10 @@ class Camera(object):
 
         '''Update current status of the people base on previous state of each person'''
         for person in self.persons:
+            print("[debug] bef pred\n", person.state)
+        for person in self.persons:
             person.predictState(dt)
+            print("[debug] aft pred\n", person.state)
         for person in self.stable_persons:
             person.predictState(dt)
 
@@ -169,10 +172,10 @@ class Camera(object):
         # print("[debug] row, ind :{} {}".format(row_ind,col_ind))
 
         '''Given assigned row and col index, assign and update person'''
-
-        for i in row_ind:
+        for i, row_id in enumerate(row_ind):
             try:
-                person = self.persons[i]
+                # DEBUG: id get swapped due to the cost function
+                person = self.persons[row_id]
                 rect = rects[col_ind[i]]
                 print("[debug] person center {}".format(person.state[0:2]))
                 print("[debug] person selected {}, {}".format(row_ind, rect['rect'][0:2]))
@@ -184,21 +187,6 @@ class Camera(object):
             except Exception as e:
                 print("[error] --update val--", e)
                 pass
-        print("[debug] length of persons {}".format(len(self.persons)))
-        # for index, person in enumerate(self.persons):
-        #     try:
-        #         # DEBUG: order of disappeared person changes id
-        #
-        #         rect = rects[col_ind[index]]
-        #         print("[debug] person center {}".format(person.state[0:2]))
-        #         print("[debug] person selected {}, {}".format(index, rect['rect'][0:2]))
-        #
-        #         person.updateAttris(rect['age'], rect['gender'], rect['project'])
-        #         person.updateState(rect['rect'][0:2])
-        #         self.display_pid.append([person.getId(), (10, 10, 200), col_ind[index]])
-        #     except Exception as e:
-        #         print("[error] --update val--", e)
-        #         pass
 
         '''Check for new box'''
         try:
