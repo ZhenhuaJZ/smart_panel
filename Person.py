@@ -14,6 +14,7 @@ class Person:
                        [0, dt**4/4, 0, dt**3/2],
                        [dt**3/2, 0, dt**2, 0],
                        [0, dt**3/2, 0, dt**2]])
+        self.K = 0
         self.tracked = 1
         self.lost = 0
 
@@ -90,9 +91,9 @@ class Person:
         self.covar = np.matmul(np.matmul(A, self.covar), np.transpose(A)) + np.array(Ex)
         print("[debug] covar\n", self.covar)
         '''Obtain kalman gain'''
-        # K = P * C.transpose * inv(C * P * C.transpose + Ez)
+        self.K = self.covar.dot(np.transpose(C)).dot(np.linalg.inv(C.dot(self.covar).dot(np.transpose(C)) + Ez))
 
-        # self.state[0:1] = Q_estimate
+        self.state = Q_estimate
 
 
     def updateState(self, z):
