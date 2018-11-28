@@ -115,6 +115,33 @@ class Camera(object):
         elif int(time.time() - self.start_time) % self.sys_clear_time != 0:
             self.stable_check_key = True
 
+    def extract_corner(self, rect):
+        xCenter = rect[0]
+        yCenter = rect[1]
+        width = rect[2]
+        height = rect[3]
+        xmin = xCenter - width/2
+        ymin = yCenter - height/2
+        xmin_2 = xCenter + width/2
+        ymin_2 = yCenter + height/2
+        xmax = xmin + width
+        ymax = ymin + height
+        xmax_2 = xmin_2 + width
+        ymax_2 = ymin_2 + height
+        return [[xCenter, yCenter], [xmin, ymin], [xmax, ymax], [xmin_2, ymin_2], [xmax_2, ymax_2]], height*width/100
+
+    def get_corner_dist(self, p_rect, d_rect, a1, a2):
+        p_rect = np.array(p_rect)
+        d_rect = np.array(d_rect)
+        # print("[debug] stage 1\n", p_rect - d_rect)
+        # print("[debug] stage 2\n", np.square(p_rect - d_rect))
+        # print("[debug] stage 3\n", np.sum(np.square(p_rect - d_rect), axis = 1))
+        # print("[debug] stage 4\n", np.sqrt(np.sum(np.square(p_rect - d_rect), axis = 1)))
+        # print("[debug] stage 4\n", np.mean(np.sqrt(np.sum(np.square(p_rect - d_rect), axis = 1))))
+        avg_dist = (np.mean(np.sqrt(np.sum(np.square(p_rect - d_rect), axis = 1))) + abs(a1-a2))/2
+        # print(a1-a2)
+        return avg_dist
+
     def people_tracking(self, rects, dt):
         '''
         if no detection longer than 3min flush system
@@ -127,15 +154,17 @@ class Camera(object):
         self.display_pid = [] #fresh display list must here !!!!!
 
         '''Update current status of the people base on previous state of each person'''
-        for person in self.persons:
-            print("[debug] bef pred\n", person.state)
-        for person in self.persons:
-            person.predictState(dt)
-            print("[debug] aft pred\n", person.state)
-        for person in self.stable_persons:
-            person.predictState(dt)
+        try:
+            for person in self.persons:
+                person.predictState(dt)
+                # print("[debug] aft pred\n", person.state)
+            for person in self.stable_persons:
+                person.predictState(dt)
+        except Exception as e:
+            print(e)
 
         '''Track people who are just moved in'''
+
         '''Generate cost matrix'''
         costMat = []
         locMat = []
@@ -146,16 +175,24 @@ class Camera(object):
                 locMat.append(loc)
                 cost = []
                 for dect_person in rects:
-                    center = dect_person['rect'][0:2]
+                    # NOTE: Use distance between four corners of the two bounding box as cost function
+                    person_rect, a1 = self.extract_corner(person.rect)
+                    print("[debug] person rect:\n", person.rect)
+                    dect_rect, a2 = self.extract_corner(dect_person['rect'])
+                    print("[debug] dect_p rect: \n", dect_person['rect'])
+                    print("[debug] a1 & a2: {} {}".format(a1, a2))
+                    avg_dist = self.get_corner_dist(person_rect, dect_rect, a1, a2)
+                    center = dect_person['rect'][0:2] # Clean
                     rectCenters.append(center)
-                    cost.append(math.sqrt((center[0] - loc[0])**2 + (center[1] - loc[1])**2))
+                    # cost.append(math.sqrt((center[0] - loc[0])**2 + (center[1] - loc[1])**2))
+                    cost.append(avg_dist)
                 costMat.append(cost)
-            costMat = np.log(np.array(costMat))
+            # costMat = np.log(np.array(costMat))
             print("[debug] costMat\n", costMat)
             print("[debug] locMat\n", locMat)
             print("[debug] recCenter\n", rectCenters)
         except Exception as e:
-            print(e)
+            print("[error] --cost mat--",e)
             raise
 
         '''Solve for minimal cost using hangarian algorithm'''
@@ -181,7 +218,7 @@ class Camera(object):
                 print("[debug] person selected {}, {}".format(row_ind, rect['rect'][0:2]))
 
                 person.updateAttris(rect['age'], rect['gender'], rect['project'])
-                person.updateState(rect['rect'][0:2])
+                person.updateState(rect['rect'])
                 self.display_pid.append([person.getId(), (10, 10, 200), col_ind[i]])
 
             except Exception as e:
@@ -197,7 +234,7 @@ class Camera(object):
                 for i in box:
                     enter_t = time.time()
                     rect = rects[i]
-                    p = Person(self.pid, rect['rect'][0], rect['rect'][1], enter_t, rect['project'], dt)
+                    p = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
                     self.persons.append(p)
                     self.pid += 1
         except Exception as e:

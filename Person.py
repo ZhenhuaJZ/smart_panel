@@ -2,14 +2,13 @@ from functools import reduce
 import numpy as np
 
 class Person:
-    def __init__(self, id, x, y, enter_t, proj_keys, dt):
+    def __init__(self, id, rect, enter_t, proj_keys, dt):
 
         self.id = id
-        self.x = x
-        self.y = y
 
+        self.rect = list(rect) #[x, y, w, h]
         '''State variables for kalman tracking'''
-        self.state = np.array([self.x, self.y, 0, 0]) # x y x^ y^
+        self.state = np.array([self.rect[0], self.rect[1], 0, 0]) # x y x^ y^
         self.covar = np.array([[dt**4/4, 0, dt**3/2, 0],
                        [0, dt**4/4, 0, dt**3/2],
                        [dt**3/2, 0, dt**2, 0],
@@ -39,9 +38,8 @@ class Person:
         return self.enter_t
     def updatePid(self, newPid):
         self.id = newPid
-    def updateCoords(self, newX, newY):
-        self.x = newX
-        self.y = newY
+    def updateCoords(self, rect):
+        self.rect = rect
     def updateAttris(self, age, gender, proj):
         self.age = age
         self.gender = gender
@@ -83,7 +81,7 @@ class Person:
                        [0, dt**4/4, 0, dt**3/2],
                        [dt**3/2, 0, dt**2, 0],
                        [0, dt**3/2, 0, dt**2]])
-        u = 5
+        u = 10
         '''Predict current state'''
         # print("[debug] a dot state\n ", A.dot(self.state))
         Q_estimate = A.dot(self.state) + B*u
@@ -95,12 +93,12 @@ class Person:
         self.K = self.covar.dot(np.transpose(C)).dot(np.linalg.inv(C.dot(self.covar).dot(np.transpose(C)) + Ez))
 
         self.state = Q_estimate
-        self.x = self.state[0]
-        self.y = self.state[1]
+        self.rect[0:2] = self.state[0:2]
 
-    def updateState(self, z):
+    def updateState(self, rect):
+        self.rect = np.array(rect)
+        z = rect[0:2]
         C = np.array([[1,0,0,0],[0,1,0,0]])
         Q_estimate = self.state + self.K.dot(z - C.dot(self.state))
         self.state = Q_estimate
-        self.x = self.state[0]
-        self.y = self.state[1]
+        self.rect[0:2] = self.state[0:2]
