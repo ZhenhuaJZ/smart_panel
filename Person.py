@@ -14,8 +14,10 @@ class Person:
                        [dt**3/2, 0, dt**2, 0],
                        [0, dt**3/2, 0, dt**2]])
         self.K = 0
-        self.tracked = 1
-        self.lost = 0
+
+        '''Variables for tracking'''
+        self.isTracked = 1
+        self.lostTime = 0
 
         self.enter_t = enter_t
         self.exit_t = -1
@@ -23,6 +25,7 @@ class Person:
         self.age = -1 #age
         self.gender = -1 #gender
         self.proj = -1
+        self.pose = -1
 
         self.avg_age = []
         self.avg_gender = []
@@ -94,6 +97,7 @@ class Person:
 
         self.state = Q_estimate
         self.rect[0:2] = self.state[0:2]
+        self.isTracked = 0
 
     def updateState(self, rect):
         self.rect = np.array(rect)

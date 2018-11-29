@@ -4,6 +4,7 @@ import math
 import sys
 import numpy as np
 from Person import *
+import copy
 from scipy.optimize import linear_sum_assignment
 
 class Camera(object):
@@ -43,77 +44,14 @@ class Camera(object):
         #queue3
         self.valid_persons = []
 
+
     def __del__(self):
         self.video.release()
+
 
     def frameDetections(self):
         return self.video.read()
 
-    def fack_preson_check(self):
-        #check every ppl location in every "sys_clear_time"
-        '''
-
-        '''
-        if int(time.time() - self.start_time) % self.sys_clear_time == 0 and self.check_key == True:
-            cur_checklist = {}
-            cur_indexlist = {}
-            for index, p in enumerate(self.persons):
-
-                fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                cur_checklist["pid" + str(p.getId())] = fix_dist
-                cur_indexlist["pid" + str(p.getId())] = index
-
-            self.check_key = False
-            for key in self.last_checklist.keys():
-                try:
-                    if cur_checklist[key] == self.last_checklist[key]:
-                        print("[POP] pop q1 : ", key)
-                        self.persons.pop(cur_indexlist[key])
-                        cur_checklist.pop(key)
-
-                        ## DEBUG:
-                        #print("[INFO] stay in q1 pid = " , [k for k in cur_checklist.keys()])
-
-                except Exception as e:
-                    pass
-
-            self.last_checklist = cur_checklist
-
-        elif int(time.time() - self.start_time) % self.sys_clear_time != 0:
-            self.check_key = True
-
-    def stabel_fack_preson_check(self):
-        #check every ppl location in every sys_clear_time
-        if int(time.time() - self.start_time) % self.sys_clear_time == 0 and self.stable_check_key == True:
-            cur_checklist = {}
-            cur_indexlist = {}
-            for index, p in enumerate(self.stable_persons):
-                fix_dist = math.sqrt((p.getX())**2 + (p.getY())**2)
-                cur_checklist["pid" + str(p.getId())] = fix_dist
-                cur_indexlist["pid" + str(p.getId())] = index
-
-            self.stable_check_key = False
-
-            for key in self.stable_last_checklist.keys():
-                try:
-                    if cur_checklist[key] == self.stable_last_checklist[key]:
-
-                        print("[MOVE] Q2 pid{} -> Q3".format(p.getId()))
-                        p = self.stable_persons[cur_indexlist[key]]
-                        p.updateLeavetime(time.time()-self.sys_clear_time) #update person leave time
-                        self.stable_persons.pop(cur_indexlist[key])
-                        cur_checklist.pop(key)
-                        self.face_pool.pop(key) #clear face pool
-                        self.entered += 1
-                        self.valid_persons.append(p)
-
-                except Exception as e:
-                    pass
-
-            self.stable_last_checklist = cur_checklist
-
-        elif int(time.time() - self.start_time) % self.sys_clear_time != 0:
-            self.stable_check_key = True
 
     def extract_corner(self, rect):
         xCenter = rect[0]
@@ -130,6 +68,7 @@ class Camera(object):
         ymax_2 = ymin_2 + height
         return [[xCenter, yCenter], [xmin, ymin], [xmax, ymax], [xmin_2, ymin_2], [xmax_2, ymax_2]], height*width/100
 
+
     def get_corner_dist(self, p_rect, d_rect, a1, a2):
         p_rect = np.array(p_rect)
         d_rect = np.array(d_rect)
@@ -142,55 +81,58 @@ class Camera(object):
         # print(a1-a2)
         return avg_dist
 
-    def people_tracking(self, rects, dt):
-        '''
-        if no detection longer than 3min flush system
-        '''
-        # if len(rects) == 0 and (time.time() - self.no_detection_time) > 180:
-        #     self.persons = []
-        #     self.stable_persons = []
-        #     self.no_detection_time = time.time()
-        #     print("[WARNING] no detection")
-        self.display_pid = [] #fresh display list must here !!!!!
 
-        '''Update current status of the people base on previous state of each person'''
-        try:
-            for person in self.persons:
-                person.predictState(dt)
-                # print("[debug] aft pred\n", person.state)
-            for person in self.stable_persons:
-                person.predictState(dt)
-        except Exception as e:
-            print(e)
+    def check_lost_time(self, persons, valid = []):
+        for person in persons:
+            if not person.isTracked and time.time() - person.lostTime > self.sys_clear_time:
+                persons.remove(person)
+                print("[Pop] pop id_{}".format(person.id))
+                if len(valid):
+                    print("[Move] Q2 id_{} move to Q3".format(person.id))
+                    valid.append(person)
 
-        '''Track people who are just moved in'''
+
+    def check_stayed_time(self):
+        for index, person in enumerate(self.persons):
+            '''if person stay in frame over 5s and is tracked'''
+            if time.time()- person.getEnter_t() > self.trustworth_time and person.isTracked:
+                print("[MOVE] q1 pid{} -> q2 pid{} ".format(person.getId(), str(self.stable_pid)))
+                person.updatePid(self.stable_pid) #replace the pid with new pid
+                self.stable_persons.append(person)
+                self.persons.pop(index) #pop person from the persons list
+                self.stable_pid += 1
+
+
+    def kalman_tracker(self, persons, rects, dt, color = (10, 10, 200)):
+
+        '''return rectangles if there are no people in the container'''
+        if not len(persons):
+            return rects
 
         '''Generate cost matrix'''
         costMat = []
         locMat = []
         rectCenters = []
         try:
-            for person in self.persons:
+            for person in persons:
                 loc = person.state[0:2] # Extract x and y location of the person
                 locMat.append(loc)
                 cost = []
                 for dect_person in rects:
                     # NOTE: Use distance between four corners of the two bounding box as cost function
                     person_rect, a1 = self.extract_corner(person.rect)
-                    print("[debug] person rect:\n", person.rect)
+                    # print("[debug] person rect:\n", person.rect)
                     dect_rect, a2 = self.extract_corner(dect_person['rect'])
-                    print("[debug] dect_p rect: \n", dect_person['rect'])
-                    print("[debug] a1 & a2: {} {}".format(a1, a2))
+                    # print("[debug] dect_p rect: \n", dect_person['rect'])
+                    # print("[debug] a1 & a2: {} {}".format(a1, a2))
                     avg_dist = self.get_corner_dist(person_rect, dect_rect, a1, a2)
                     center = dect_person['rect'][0:2] # Clean
-                    rectCenters.append(center)
-                    # cost.append(math.sqrt((center[0] - loc[0])**2 + (center[1] - loc[1])**2))
+                    # rectCenters.append(center)
                     cost.append(avg_dist)
                 costMat.append(cost)
-            # costMat = np.log(np.array(costMat))
-            print("[debug] costMat\n", costMat)
-            print("[debug] locMat\n", locMat)
-            print("[debug] recCenter\n", rectCenters)
+            # print("[debug] costMat\n", costMat)
+            # print("[debug] locMat\n", locMat)
+            # print("[debug] recCenter\n", rectCenters)
         except Exception as e:
             print("[error] --cost mat--",e)
             raise
@@ -199,7 +141,7 @@ class Camera(object):
         try:
             if len(costMat) is not 0:
                 row_ind, col_ind = linear_sum_assignment(costMat)
-                print("[debug] row, col :{} {}".format(row_ind,col_ind))
+                # print("[debug] row, col :{} {}".format(row_ind,col_ind))
             else:
                 row_ind = []
                 col_ind = []
@@ -211,94 +153,71 @@ class Camera(object):
         '''Given assigned row and col index, assign and update person'''
         for i, row_id in enumerate(row_ind):
             try:
-                # DEBUG: id get swapped due to the cost function
-                person = self.persons[row_id]
+                person = persons[row_id]
                 rect = rects[col_ind[i]]
-                print("[debug] person center {}".format(person.state[0:2]))
-                print("[debug] person selected {}, {}".format(row_ind, rect['rect'][0:2]))
-
+                # print("[debug] person center {}".format(person.state[0:2]))
+                # print("[debug] person selected {}, {}".format(row_ind, rect['rect'][0:2]))
                 person.updateAttris(rect['age'], rect['gender'], rect['project'])
                 person.updateState(rect['rect'])
-                self.display_pid.append([person.getId(), (10, 10, 200), col_ind[i]])
+                person.pose = rect['pose']
+                person.lostTime = time.time()
+                person.isTracked = 1
+                self.display_pid.append([person.getId(), color, col_ind[i]])
 
             except Exception as e:
                 print("[error] --update val--", e)
                 pass
 
-        '''Check for new box'''
+        '''Remove tracked rectangles'''
+        print("[debug] col index {}".format(col_ind))
+        val = [rects[i] for i in col_ind]
+        for i in val:
+            rects.remove(i)
+        print("[debug] len rects {}".format(len(rects)))
+        return rects
+
+
+    def people_tracking(self, rects, dt):
+        '''Make a deep copy of the rectangles so it doesnt affect draw_detection_info'''
+        rects = copy.deepcopy(rects)
+        self.display_pid = []
+
+        '''Update current status of the people base on previous state of each person'''
         try:
-            boxes = [i for i in range(len(rects))]
-            box = list(set(boxes) - set(col_ind))
-            print(box)
-            if len(box):
-                for i in box:
+            for person in self.persons:
+                person.predictState(dt)
+                # print("[debug] aft pred\n", person.state)
+            for person in self.stable_persons:
+                person.predictState(dt)
+        except Exception as e:
+            print(e)
+
+        '''check person stayed long enough to be captured as viewer'''
+        try:
+            '''Track persons'''
+            rects = self.kalman_tracker(self.persons, rects, dt, color = (10, 10, 200))
+            '''Track stable person'''
+            rects = self.kalman_tracker(self.stable_persons, rects, dt, color = (10, 200, 10))
+        except Exception as e:
+            print(e)
+
+        '''Check for the duration of lost tracked and '''
+        self.check_stayed_time()
+
+        '''Remove all excessive persons that are not tracked for certain time'''
+        self.check_lost_time(self.persons)
+        self.check_lost_time(self.stable_persons, self.valid_persons)
+
+        '''Check for new box between persons and rect'''
+        try:
+            if len(rects):
+                for rect in rects:
                     enter_t = time.time()
-                    rect = rects[i]
-                    p = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
-                    self.persons.append(p)
+                    person = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
+                    self.persons.append(person)
                     self.pid += 1
+                    print("new person")
+
         except Exception as e:
             print("[error] --newbox check---", e)
         print("*****************\n")
-        # time.sleep(1)
-
-        # for person in rects:
-        #     xCenter, yCenter, w, h = person['rect']
-        #     gender = person['gender']
-        #     age = person['age']
-        #     proj = person['project']
-        #     new = True
-        #     inActiveZone= xCenter in range(self.rangeLeft,self.rangeRight)
-        #
-        #     """
-        #     queue1
-        #     """
-        #     self.fack_preson_check()
-        #     # print("here")
-        #     for index, p in enumerate(self.persons):
-        #         #if person stay in frame over 5s
-        #         if time.time()- p.getEnter_t() > self.trustworth_time:
-        #             print("[MOVE] q1 pid{} -> q2 pid{} ".format(p.getId(), str(self.stable_pid)))
-        #             p.updatePid(self.stable_pid) #replace the pid with new pid
-        #             self.stable_persons.append(p)
-        #             self.persons.pop(index) #pop person from the persons list
-        #             self.stable_pid += 1
-        #
-        #         dist = math.sqrt((xCenter - p.getX())**2 + (yCenter - p.getY())**2)
-        #         p.updateAttris(age, gender, proj)
-        #
-        #         if dist <= w and dist <=h:
-        #             if inActiveZone:
-        #                 new = False
-        #                 self.display_pid.append([p.getId(), (10, 10, 200)]) #id, display color
-        #                 p.updateCoords(xCenter,yCenter)
-        #                 break
-        #             else:
-        #                 try:
-        #                     self.persons.pop(index)
-        #                     print("[POP]  pid{} removed from q1".format(str(p.getId())))
-        #                     self.last_checklist.pop("pid" + str(p.getId())) #pop last frame dict id --- > 1st then pop list
-        #                 except Exception as e:
-        #                     pass
-        #     """
-        #     queue2
-        #     """
-        #     self.stabel_fack_preson_check()
-        #
-        #     '''for each people, predict current state base on prev state'''
-        #     for person in self.persons:
-        #         try:
-        #             person.predictState(dt)
-        #         except Exception as e:
-        #             print(e)
-        #     '''Match predicted state with people that are detected'''
-        #
-        #     '''If more than one person is not found, update only predict current state and track loss time'''
-        #
-        #     #make sure the total persons number wont excess the bounding box
-        #     if new == True and inActiveZone and len(self.persons) + len(self.stable_persons) + 1 <= len(rects) :
-        #         print("[CREAT] new pid" + str(self.pid))
-        #         enter_t = time.time()
-        #         p = Person(self.pid, xCenter, yCenter, enter_t, proj, dt)
-        #         self.persons.append(p)
-        #         self.pid += 1
