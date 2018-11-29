@@ -160,79 +160,78 @@ def eular_to_image(frame,eular_angle,center,scale):
     return z_p2
 
 def draw_detection_info(frame, cam, personContours, end_points):
-
-    try:
-        for person in cam.persons:
-            pid = person.id
-            xCenter_fc, yCenter_fc, width_fc, height_fc = person.rect
-            age = person.age
-            gender = person.gender
-            print(person.pose)
-            end_point = person.pose
-            xmin_fc = int(xCenter_fc - width_fc/2)
-            ymin_fc = int(yCenter_fc - height_fc/2)
-            xmax_fc = xmin_fc + width_fc
-            ymax_fc = ymin_fc + height_fc
-            #head pose track
-            cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (10, 10, 200), 1)
-            cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 1)
-            #age gender text
-            cv2.putText(frame, "pid" + str(pid), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 10, 200), 1)
-            cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
-            cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),(10, 10, 200),1)
-            cv2.circle(frame,(end_point[0],end_point[1]), 50, (10, 10, 200),1)
-
-        for person in cam.stable_persons:
-            pid = person.id
-            xCenter_fc, yCenter_fc, width_fc, height_fc = person.rect
-            age = person.age
-            gender = person.gender
-            end_point = person.pose
-            xmin_fc = int(xCenter_fc - width_fc/2)
-            ymin_fc = int(yCenter_fc - height_fc/2)
-            xmax_fc = xmin_fc + width_fc
-            ymax_fc = ymin_fc + height_fc
-            #head pose track
-            cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (10, 200, 10), 1)
-            cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 200, 10), 1)
-            #age gender text
-            cv2.putText(frame, "pid" + str(pid), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 200, 10), 1)
-            cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 200, 10), 1)
-            cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),(10, 200, 10),1)
-            cv2.circle(frame,(end_point[0],end_point[1]), 50, (10, 200, 10),1)
-    except Exception as e:
-        print(e)
+    # try:
+    #     for person in cam.persons:
+    #         pid = person.id
+    #         xCenter_fc, yCenter_fc, width_fc, height_fc = person.rect
+    #         age = person.age
+    #         gender = person.gender
+    #         print(person.pose)
+    #         end_point = person.pose
+    #         xmin_fc = int(xCenter_fc - width_fc/2)
+    #         ymin_fc = int(yCenter_fc - height_fc/2)
+    #         xmax_fc = xmin_fc + width_fc
+    #         ymax_fc = ymin_fc + height_fc
+    #         #head pose track
+    #         cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (10, 10, 200), 1)
+    #         cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 10, 200), 1)
+    #         #age gender text
+    #         cv2.putText(frame, "pid" + str(pid), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 10, 200), 1)
+    #         cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
+    #         cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),(10, 10, 200),1)
+    #         cv2.circle(frame,(end_point[0],end_point[1]), 50, (10, 10, 200),1)
+    #
+    #     for person in cam.stable_persons:
+    #         pid = person.id
+    #         xCenter_fc, yCenter_fc, width_fc, height_fc = person.rect
+    #         age = person.age
+    #         gender = person.gender
+    #         end_point = person.pose
+    #         xmin_fc = int(xCenter_fc - width_fc/2)
+    #         ymin_fc = int(yCenter_fc - height_fc/2)
+    #         xmax_fc = xmin_fc + width_fc
+    #         ymax_fc = ymin_fc + height_fc
+    #         #head pose track
+    #         cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, (10, 200, 10), 1)
+    #         cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), (10, 200, 10), 1)
+    #         #age gender text
+    #         cv2.putText(frame, "pid" + str(pid), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 200, 10), 1)
+    #         cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (10, 200, 10), 1)
+    #         cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),(10, 200, 10),1)
+    #         cv2.circle(frame,(end_point[0],end_point[1]), 50, (10, 200, 10),1)
+    # except Exception as e:
+    #     print(e)
 
     # for end_point in end_points:
     #     cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),(10, 10, 200),1)
     #     cv2.circle(frame,(end_point[0],end_point[1]), 50, (10, 10, 200),1)
     #     #bounding box and pid
 
-    # try:
-    #     for pid in cam.display_pid:
-    #         col_ind = pid[2]
-    #         attri = personContours[col_ind]
-    #         end_point = end_points[col_ind]
-    #         xCenter_fc, yCenter_fc, width_fc, height_fc = attri['rect']
-    #         age = attri['age']
-    #         gender = attri['gender']
-    #
-    #         xmin_fc = int(xCenter_fc - width_fc/2)
-    #         ymin_fc = int(yCenter_fc - height_fc/2)
-    #         xmax_fc = xmin_fc + width_fc
-    #         ymax_fc = ymin_fc + height_fc
-    #
-    #         #head pose track
-    #         cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),pid[1],1)
-    #         cv2.circle(frame,(end_point[0],end_point[1]), 50, pid[1],1)
-    #         #bounding box and pid
-    #         cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, pid[1], 1)
-    #         cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), pid[1], 1)
-    #         #age gender text
-    #         cv2.putText(frame, "pid" + str(pid[0]), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, pid[1], 1)
-    #         cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
-    # except Exception as e:
-    #     print("[error] --draw--",e)
+    try:
+        for pid in cam.display_pid:
+            col_ind = pid[2]
+            attri = personContours[col_ind]
+            end_point = end_points[col_ind]
+            xCenter_fc, yCenter_fc, width_fc, height_fc = attri['rect']
+            age = attri['age']
+            gender = attri['gender']
+
+            xmin_fc = int(xCenter_fc - width_fc/2)
+            ymin_fc = int(yCenter_fc - height_fc/2)
+            xmax_fc = xmin_fc + width_fc
+            ymax_fc = ymin_fc + height_fc
+
+            #head pose track
+            cv2.line(frame,(xCenter_fc,yCenter_fc),(end_point[0],end_point[1]),pid[1],1)
+            cv2.circle(frame,(end_point[0],end_point[1]), 50, pid[1],1)
+            #bounding box and pid
+            cv2.circle(frame, (xCenter_fc, yCenter_fc), 4, pid[1], 1)
+            cv2.rectangle(frame, (xmin_fc, ymin_fc), (xmax_fc, ymax_fc), pid[1], 1)
+            #age gender text
+            cv2.putText(frame, "pid" + str(pid[0]), (xmin_fc, ymin_fc-10), cv2.FONT_HERSHEY_COMPLEX, 0.6, pid[1], 1)
+            cv2.putText(frame, str(gender) +", "+str(age), (xmin_fc + 50, ymin_fc - 10), cv2.FONT_HERSHEY_COMPLEX, 0.6, (200, 10, 10), 1)
+    except Exception as e:
+        print("[error] --draw--",e)
 
 def draw_UI_info(frame, render_time, cam):
 

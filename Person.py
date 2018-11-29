@@ -67,6 +67,7 @@ class Person:
 
     def updateLeavetime(self, leave_time):
         self.exit_t = leave_time
+        
     def getAttris(self):
         list = [self.id, self.age, self.gender, self.enter_t, self.exit_t, int(self.exit_t - self.enter_t)]
         proj_list = [self.proj_view_time[key] for key in self.proj_view_time.keys()]
@@ -84,7 +85,7 @@ class Person:
                        [0, dt**4/4, 0, dt**3/2],
                        [dt**3/2, 0, dt**2, 0],
                        [0, dt**3/2, 0, dt**2]])
-        u = 10
+        u = 1
         '''Predict current state'''
         # print("[debug] a dot state\n ", A.dot(self.state))
         Q_estimate = A.dot(self.state) + B*u

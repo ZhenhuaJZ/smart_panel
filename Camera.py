@@ -84,12 +84,16 @@ class Camera(object):
 
     def check_lost_time(self, persons, valid = []):
         for person in persons:
-            if not person.isTracked and time.time() - person.lostTime > self.sys_clear_time:
+            x,_,_,_ = person.rect
+            inActiveZone = x in range(self.rangeLeft, self.rangeRight)
+            if not person.isTracked and time.time() - person.lostTime > self.sys_clear_time or not inActiveZone:
                 persons.remove(person)
                 print("[Pop] pop id_{}".format(person.id))
                 if len(valid):
                     print("[Move] Q2 id_{} move to Q3".format(person.id))
                     valid.append(person)
+                    self.entered += 1
+                    person.updateLeavetime(time.time())
 
 
     def check_stayed_time(self):
@@ -107,7 +111,7 @@ class Camera(object):
 
         '''return rectangles if there are no people in the container'''
         if not len(persons):
-            return rects
+            return rects, []
 
         '''Generate cost matrix'''
         costMat = []
@@ -149,7 +153,6 @@ class Camera(object):
             print(e)
             pass
         # print("[debug] row, ind :{} {}".format(row_ind,col_ind))
-
         '''Given assigned row and col index, assign and update person'''
         for i, row_id in enumerate(row_ind):
             try:
@@ -163,18 +166,11 @@ class Camera(object):
                 person.lostTime = time.time()
                 person.isTracked = 1
                 self.display_pid.append([person.getId(), color, col_ind[i]])
-
             except Exception as e:
                 print("[error] --update val--", e)
                 pass
 
-        '''Remove tracked rectangles'''
-        print("[debug] col index {}".format(col_ind))
-        val = [rects[i] for i in col_ind]
-        for i in val:
-            rects.remove(i)
-        print("[debug] len rects {}".format(len(rects)))
-        return rects
+        return rects, col_ind
 
 
     def people_tracking(self, rects, dt):
@@ -195,11 +191,11 @@ class Camera(object):
         '''check person stayed long enough to be captured as viewer'''
         try:
             '''Track persons'''
-            rects = self.kalman_tracker(self.persons, rects, dt, color = (10, 10, 200))
+            rects, rect_index = self.kalman_tracker(self.persons, rects, dt, color = (10, 10, 200))
             '''Track stable person'''
-            rects = self.kalman_tracker(self.stable_persons, rects, dt, color = (10, 200, 10))
+            rects, rect_index_stable = self.kalman_tracker(self.stable_persons, rects, dt, color = (10, 200, 10))
         except Exception as e:
-            print(e)
+            print("[error] --kalman_tracker--",e)
 
         '''Check for the duration of lost tracked and '''
         self.check_stayed_time()
@@ -208,15 +204,30 @@ class Camera(object):
         self.check_lost_time(self.persons)
         self.check_lost_time(self.stable_persons, self.valid_persons)
 
-        '''Check for new box between persons and rect'''
+        '''Remove tracked rectangles'''
+        try:
+            rect_index = list(np.append(rect_index,rect_index_stable).astype(np.int_))
+
+            print("[debug] rect index {}".format(rect_index))
+            val = [rects[i] for i in rect_index]
+            for i in val:
+                rects.remove(i)
+            print("[debug] len rects {}".format(len(rects)))
+        except Exception as e:
+            print("[error] --remove--", e)
+
+        '''Check for new and untracked rect'''
         try:
             if len(rects):
                 for rect in rects:
-                    enter_t = time.time()
-                    person = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
-                    self.persons.append(person)
-                    self.pid += 1
-                    print("new person")
+                    x,_,_,_ = rect['rect']
+                    inActiveZone = x in range(self.rangeLeft, self.rangeRight)
+                    if inActiveZone:
+                        enter_t = time.time()
+                        person = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
+                        self.persons.append(person)
+                        self.pid += 1
+                        print("new person")
 
         except Exception as e:
             print("[error] --newbox check---", e)
