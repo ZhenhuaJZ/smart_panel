@@ -82,7 +82,7 @@ class Camera(object):
         return avg_dist
 
 
-    def check_lost_time(self, persons, valid = []):
+    def check_lost_time(self, persons, valid = " "):
         for person in persons:
             x,_,_,_ = person.rect
             inActiveZone = x in range(self.rangeLeft, self.rangeRight)
@@ -91,8 +91,9 @@ class Camera(object):
                 print("[Pop] pop id_{}".format(person.id))
                 # self.pid += 1
                 # self.stable_pid += 1
-                # BUG: when valid poped
-                if len(valid):
+                # BUG: when pop from persons, stable not update
+                # BUG: when pop from stable , stable updated
+                if valid is not " ":
                     print("[Move] Q2 id_{} move to Q3".format(person.id))
                     valid.append(person)
                     self.entered += 1
