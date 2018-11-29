@@ -89,17 +89,13 @@ class Camera(object):
             if not person.isTracked and time.time() - person.lostTime > self.sys_clear_time or not inActiveZone:
                 persons.remove(person)
                 print("[Pop] pop id_{}".format(person.id))
-                # self.pid += 1
-                # self.stable_pid += 1
-                # BUG: when pop from persons, stable not update
-                # BUG: when pop from stable , stable updated
                 if valid is not " ":
                     print("[Move] Q2 id_{} move to Q3".format(person.id))
                     valid.append(person)
                     self.entered += 1
                     person.updateLeavetime(time.time())
-                # else:
-                #     self.stable_pid += 1
+                else:
+                    self.stable_pid += 1
 
 
     def check_stayed_time(self):
