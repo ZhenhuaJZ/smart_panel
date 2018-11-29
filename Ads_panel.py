@@ -134,13 +134,13 @@ class Advertisment (object):
         cv2.setWindowProperty(self.window_name, cv2.WND_PROP_FULLSCREEN,
                           cv2.WINDOW_FULLSCREEN)
         """Read predict id"""
-        # _thread.start_new_thread(self.read_queue,(q_in,))
+        _thread.start_new_thread(self.read_queue,(q_in,))
 
         while 1:
-            #black canvas
-            # img = cv2.imread("bg.png")
-            # cv2.imshow(self.window_name, img)
-            # key = cv2.waitKey(100)
+            # black canvas
+            img = cv2.imread("bg.png")
+            cv2.imshow(self.window_name, img)
+            key = cv2.waitKey(100)
 
             for v in videos:
                 if self.predict_id != None:
@@ -150,8 +150,8 @@ class Advertisment (object):
                 id = os.path.splitext(v)[0] #set video id
                 self.write_queue(id,q_out)
                 v = os.path.join(self.path, v)
-                # call(["ffplay", str(v), '-autoexit', '-fs', '-loglevel', 'quiet']) #full screen
-                # call(["ffplay", str(v), '-autoexit', '-x', '200', '-y', '200', '-loglevel', 'quiet']) #full screen
+                call(["ffplay", str(v), '-autoexit', '-fs', '-loglevel', 'quiet']) #full screen
+                call(["ffplay", str(v), '-autoexit', '-x', '200', '-y', '200', '-loglevel', 'quiet']) #full screen
 
     def ads_prediction(self, ads_q, xCenter, age, gender, camera_width):
         inPrepareZone= xCenter not in range(int(1*camera_width/8) ,int(7*camera_width/8))

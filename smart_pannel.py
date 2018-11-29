@@ -351,7 +351,7 @@ def main(ads,q,ads_q):
     #                   cv2.WINDOW_FULLSCREEN)
     """small screen"""
     cv2.namedWindow(window_name,cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(window_name, 1000,800)
+    cv2.resizeWindow(window_name, 600,600)
     cv2.moveWindow(window_name, 1900,1000)
 
     '''Variable Definition'''

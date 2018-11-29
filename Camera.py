@@ -89,11 +89,16 @@ class Camera(object):
             if not person.isTracked and time.time() - person.lostTime > self.sys_clear_time or not inActiveZone:
                 persons.remove(person)
                 print("[Pop] pop id_{}".format(person.id))
+                # self.pid += 1
+                # self.stable_pid += 1
+                # BUG: when valid poped
                 if len(valid):
                     print("[Move] Q2 id_{} move to Q3".format(person.id))
                     valid.append(person)
                     self.entered += 1
                     person.updateLeavetime(time.time())
+                # else:
+                #     self.stable_pid += 1
 
 
     def check_stayed_time(self):
@@ -107,7 +112,7 @@ class Camera(object):
                 self.stable_pid += 1
 
 
-    def kalman_tracker(self, persons, rects, dt, color = (10, 10, 200)):
+    def kalman_tracker(self, persons, stable_type_index, rects, dt):
 
         '''return rectangles if there are no people in the container'''
         if not len(persons):
@@ -165,12 +170,16 @@ class Camera(object):
                 person.pose = rect['pose']
                 person.lostTime = time.time()
                 person.isTracked = 1
+                if stable_type_index[row_id] is 0:
+                    color = (10,10,200)
+                else:
+                    color = (10,200,10)
                 self.display_pid.append([person.getId(), color, col_ind[i]])
             except Exception as e:
                 print("[error] --update val--", e)
                 pass
 
-        return rects, col_ind
+        return rects, list(col_ind)
 
 
     def people_tracking(self, rects, dt):
@@ -189,11 +198,23 @@ class Camera(object):
             print(e)
 
         '''check person stayed long enough to be captured as viewer'''
+        # BUG: If there are one in red and one in green, and only one face is detected, current algorithm will have both red and green refer to the same rectangle
+        ## BUG: but if delete, then what the rect suppose to be green will be red first
         try:
+            track_people = []
+            track_index = []
+            '''combining both persons and stable persons list into one'''
+            '''track index is use to identify whether a person in track_people list is stable or not'''
+            for person in self.persons:
+                x = 1
+                track_people.append(person)
+                track_index.append(0)
+            for person in self.stable_persons:
+                track_people.append(person)
+                track_index.append(1)
             '''Track persons'''
-            rects, rect_index = self.kalman_tracker(self.persons, rects, dt, color = (10, 10, 200))
-            '''Track stable person'''
-            rects, rect_index_stable = self.kalman_tracker(self.stable_persons, rects, dt, color = (10, 200, 10))
+            '''Returns original rectangle and the index which people are tracked'''
+            rects, rect_index = self.kalman_tracker(track_people, track_index, rects, dt)
         except Exception as e:
             print("[error] --kalman_tracker--",e)
 
@@ -206,29 +227,29 @@ class Camera(object):
 
         '''Remove tracked rectangles'''
         try:
-            rect_index = list(np.append(rect_index,rect_index_stable).astype(np.int_))
-
-            print("[debug] rect index {}".format(rect_index))
+            # print("[debug] rect len {}".format(len(rects)))
+            # print("[debug] rect index bes {}".format(type(rect_index)))
+            # rect_index = np.sort(rect_index)
+            # print("[debug] rect index aft {}".format(rect_index))
             val = [rects[i] for i in rect_index]
+            # print("[debug] val\n", val)
             for i in val:
                 rects.remove(i)
-            print("[debug] len rects {}".format(len(rects)))
         except Exception as e:
             print("[error] --remove--", e)
 
         '''Check for new and untracked rect'''
         try:
-            if len(rects):
-                for rect in rects:
-                    x,_,_,_ = rect['rect']
-                    inActiveZone = x in range(self.rangeLeft, self.rangeRight)
-                    if inActiveZone:
-                        enter_t = time.time()
-                        person = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
-                        self.persons.append(person)
-                        self.pid += 1
-                        print("new person")
-
+            for rect in rects:
+                x,_,_,_ = rect['rect']
+                inActiveZone = x in range(self.rangeLeft, self.rangeRight)
+                if inActiveZone:
+                    enter_t = time.time()
+                    person = Person(self.pid, rect['rect'], enter_t, rect['project'], dt)
+                    print("[CREATE] new pid_" + str(self.pid))
+                    self.persons.append(person)
+                    self.pid += 1
+                    # self.stable_pid += 1
         except Exception as e:
             print("[error] --newbox check---", e)
-        print("*****************\n")
+        # print("*****************\n")
